@@ -1,6 +1,6 @@
 # Vocabulary Trainer
 
-Application to learn vocabulary. The first version is planned for English and German, with private collections and a configurable box-based learning system.
+Application to learn vocabulary. The first release is planned to have an English and German interface. Vocabulary languages are selected by users when creating a collection; they are not restricted to English and German.
 
 ## Local development
 
@@ -44,7 +44,9 @@ docker compose down
 
 ## Project direction
 
-- First release: English and German vocabulary collections, private by default.
+- First release interface languages: English and German.
+- Users choose the source and target vocabulary languages when creating each collection; vocabulary languages are not limited to English and German.
+- Collections are private by default.
 - Vocabulary entries can be created, edited, and removed.
 - Study modes: multiple choice or typed answer, in either translation direction.
 - Learning progress is tracked per user, entry, and direction. A correct answer moves an entry up one box; an incorrect answer returns it to the first box. The number of boxes should be configurable.
