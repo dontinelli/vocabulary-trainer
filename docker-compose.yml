@@ -1,0 +1,49 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    volumes:
+      - .:/workspaces/vocabulary-trainer:cached
+    working_dir: /workspaces/vocabulary-trainer
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    environment:
+      MARIADB_DATABASE: ${MYSQL_DATABASE:-nextcloud}
+      MARIADB_USER: ${MYSQL_USER:-nextcloud}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD:-nextcloud-dev}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-dev}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  nextcloud:
+    image: ${NEXTCLOUD_IMAGE:-nextcloud:stable-apache}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${NEXTCLOUD_PORT:-8080}:80"
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-nextcloud}
+      MYSQL_USER: ${MYSQL_USER:-nextcloud}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-nextcloud-dev}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_ADMIN_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_ADMIN_PASSWORD:-admin-dev}
+    volumes:
+      - nextcloud_data:/var/www/html
+      - ./apps/nextcloud/vocabulary_trainer:/var/www/html/custom_apps/vocabulary_trainer
+
+volumes:
+  db_data:
+  nextcloud_data:
