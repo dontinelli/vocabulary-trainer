@@ -19,6 +19,7 @@ Table: `vocabulary_collections`
 Constraints:
 - source_language and target_language must be provided
 - source_language != target_language
+- box_count is configurable per collection and must be between 2 and 10
 - rows are always filtered by `user_id`
 
 ## 2. Entries
@@ -37,7 +38,7 @@ Table: `vocabulary_entries`
 
 Constraints:
 - each entry belongs to exactly one collection
-- on collection delete, related entries are deleted as part of cleanup or migration logic
+- collection deletion cascades to its entries
 
 ## 3. Study progress
 
@@ -59,23 +60,29 @@ Table: `vocabulary_progress`
 
 Constraints:
 - unique on (`user_id`, `entry_id`, `direction`)
-- `box` should always be within the valid range for the user's configured box count
-- on entry delete, related progress-entries are deleted as part of cleanup or migration logic
+- `box` should always be within the valid range for its collection's `box_count`
+- entry deletion cascades to its progress rows
 
-## 4. User preference
+## 4. User preferences
 
-Table: `vocabulary_user_settings` (recommended)
+Table: `vocabulary_user_settings`
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | user_id | varchar(255) PK | Nextcloud user |
-| start_with_new | bool | start with new pairs before repeting old ones |
-| include_final_box | bool | keep asking paris in final box |
-| return_by_mistake | bool | handling of mistakes (return one box or direct to box 1) |
+| start_with_new | bool | study new pairs before repeating existing ones |
+| include_final_box | bool | continue asking pairs in the final box |
+| return_by_mistake | bool | whether a mistake lowers progress by one box or resets to box 1 |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
-## 5. Notes on language handling
+These are the initial baseline settings; additional settings may be added later. Their default values and precise behavior should be set by the application when initializing a user's settings.
+
+## 5. Installation and validation
+
+The initial versioned migration creates these tables, indexes, and cascade relationships when the app is enabled or upgraded. Collection language inequality and BCP 47 validation, per-collection box-count bounds, valid progress directions, and ownership checks are enforced by application services; they must not be trusted to request data. User settings are per-user and initialized separately from collection creation.
+
+## 6. Notes on language handling
 
 The collection vocabulary language pair is independent and stored as a BCP 47 tag. Example values:
 

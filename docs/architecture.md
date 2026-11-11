@@ -60,7 +60,7 @@ The UI is initially localized in English and German, but these are not restricti
 
 ## Learning model
 
-Track progress per user, entry, and translation direction. The default is five boxes; store each user's configured box count as a validated user preference (initially 2–10, default 5), not as a global app setting. New progress begins in box 1. A correct answer advances at most one box; an incorrect answer resets to box 1 (or one box lower). The scheduler should use the current configured box count when choosing due work, so changing the setting does not require migrating progress rows.
+Track progress per user, entry, and translation direction. Each collection has its own validated box count (initially 2–10, default 5). New progress begins in box 1. A correct answer advances at most one box; an incorrect answer resets to box 1 (or one box lower). The scheduler should use the collection's configured box count when choosing due work.
 
 A first scheduling policy can assign increasing review intervals to higher boxes. Keep that mapping in application code initially; it can become a user preference later if user testing shows a need. Progress rows store the next due time so the scheduler can evolve without changing the meaning of box placement.
 
@@ -69,5 +69,5 @@ A first scheduling policy can assign increasing review intervals to higher boxes
 - The scope and source of the initial bundled language chooser list, and whether users can enter a language tag not in that list.
 - Whether one word pair is strictly one-to-one in the MVP or whether entries need multiple accepted translations immediately.
 - Answer normalization rules (case, whitespace, punctuation, and accepted alternatives).
-- The initial interval assigned to each box and the behavior when a user changes box count.
+- The initial interval assigned to each box and the behavior when a collection's box count changes.
 - API route naming/versioning and frontend build choices for the selected Nextcloud compatibility range.

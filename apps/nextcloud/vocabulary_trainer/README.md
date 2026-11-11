@@ -26,6 +26,8 @@ apps/
         │   │   └── Application.php
         │   ├── Controller/
         │   │   └── PageController.php
+        │   ├── Migration/
+        │   │   └── Version1000Date20261111092900.php
         │   └── Service/
         │       └── CollectionService.php
         └── README.md
@@ -34,3 +36,7 @@ apps/
 ## Notes
 
 This is intentionally a minimal app skeleton. It is not yet a full product implementation. It is meant to provide a working Nextcloud app foundation for ongoing development.
+
+## Installation setup
+
+The app's first schema setup is a versioned database migration in `lib/Migration`. Nextcloud runs it when the app is enabled and applies later migrations during app upgrades. The migration creates the collections, entries, progress, and user-settings tables; each collection stores its own box count, while `vocabulary_user_settings` stores the initial per-user study settings. It does not seed user data or alter schema during requests.
