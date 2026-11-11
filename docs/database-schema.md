@@ -82,6 +82,8 @@ These are the initial baseline settings; additional settings may be added later.
 
 The initial versioned migration creates these tables, indexes, and cascade relationships when the app is enabled or upgraded. Collection language inequality and BCP 47 validation, per-collection box-count bounds, valid progress directions, and ownership checks are enforced by application services; they must not be trusted to request data. User settings are per-user and initialized separately from collection creation.
 
+Nextcloud does not automatically drop app-owned tables when app files are removed. In the supported Nextcloud 35 lifecycle, uninstall repair steps also run when the app is disabled; avoid using them for destructive cleanup when app data must survive a temporary disable. The app currently leaves its tables intact on removal.
+
 ## 6. Notes on language handling
 
 The collection vocabulary language pair is independent and stored as a BCP 47 tag. Example values:

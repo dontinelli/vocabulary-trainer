@@ -40,3 +40,7 @@ This is intentionally a minimal app skeleton. It is not yet a full product imple
 ## Installation setup
 
 The app's first schema setup is a versioned database migration in `lib/Migration`. Nextcloud runs it when the app is enabled and applies later migrations during app upgrades. The migration creates the collections, entries, progress, and user-settings tables; each collection stores its own box count, while `vocabulary_user_settings` stores the initial per-user study settings. It does not seed user data or alter schema during requests.
+
+## Data removal
+
+Nextcloud removes an app's files when it is removed, but it does not automatically drop app-owned database tables. In Nextcloud 35, registered uninstall repair steps also run when an app is disabled, so they cannot safely be used to delete user data only on permanent removal. To preserve data when the app is temporarily disabled, this app does not register a destructive uninstall step. Removing the app therefore leaves its database tables in place until a safe uninstall-only cleanup mechanism is available.
