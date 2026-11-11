@@ -1,0 +1,31 @@
+{
+  "name": "Vocabulary Trainer (Nextcloud)",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "workspace",
+  "runServices": ["db", "nextcloud"],
+  "workspaceFolder": "/workspaces/vocabulary-trainer",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Nextcloud",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bmewburn.vscode-intelephense-client",
+        "Vue.volar",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "remoteUser": "vscode",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    }
+  }
+}

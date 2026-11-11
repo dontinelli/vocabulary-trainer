@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<info>
+  <id>vocabulary_trainer</id>
+  <name>Vocabulary Trainer</name>
+  <summary>Learn vocabulary with collections, progress tracking, and review cycles.</summary>
+  <description><![CDATA[
+    Vocabulary Trainer is a Nextcloud app for creating word collections, studying vocabulary, and tracking learning progress over time.
+  ]]></description>
+  <version>0.1.0</version>
+  <licence>agpl</licence>
+  <author>dontinelli</author>
+  <namespace>VocabularyTrainer</namespace>
+  <category>tools</category>
+  <navigation>
+    <name>Vocabulary Trainer</name>
+    <route>voc.page.index</route>
+    <order>0</order>
+</navigation>
+  <website>https://github.com/dontinelli/vocabulary-trainer</website>
+  <bugs>https://github.com/dontinelli/vocabulary-trainer/issues</bugs>
+  <documentation>
+    <user>https://github.com/dontinelli/vocabulary-trainer/apps/nextcloud/vocabulary_trainer/README.md</user>
+  </documentation>
+  <dependencies>
+    <nextcloud min-version="35" max-version="35"/>
+  </dependencies>
+</info>
