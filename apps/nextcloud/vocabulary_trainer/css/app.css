@@ -264,6 +264,11 @@
     color: var(--vt-text);
 }
 
+.vt-dialog[hidden],
+.vt-dialog:not([open]) {
+    display: none !important;
+}
+
 .vt-dialog::backdrop {
     background: rgb(0 0 0 / 45%);
 }

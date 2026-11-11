@@ -19,6 +19,12 @@ namespace OCP {
     }
 }
 
+namespace OCP\DB\QueryBuilder {
+    interface IQueryBuilder {
+        public const PARAM_INT_ARRAY = 101;
+    }
+}
+
 namespace OCP\AppFramework {
     use OCP\IRequest;
 
@@ -31,7 +37,7 @@ namespace OCP\AppFramework {
     }
 }
 
-namespace OCP\AppFramework\Http {
+namespace OCP\AppFramework {
     class Http {
         public const STATUS_OK = 200;
         public const STATUS_CREATED = 201;
@@ -39,9 +45,13 @@ namespace OCP\AppFramework\Http {
         public const STATUS_UNAUTHORIZED = 401;
         public const STATUS_NOT_FOUND = 404;
     }
+}
+
+namespace OCP\AppFramework\Http {
+    use OCP\AppFramework\Http as HttpStatus;
 
     class DataResponse {
-        public function __construct(private mixed $data = [], private int $status = Http::STATUS_OK) {
+        public function __construct(private mixed $data = [], private int $status = HttpStatus::STATUS_OK) {
         }
 
         public function getData(): mixed {
@@ -91,6 +101,10 @@ namespace OCA\VocabularyTrainer\Tests {
     final class FakeExpressionBuilder {
         public function eq(string $column, string $parameter): string {
             return $column . ' = ' . $parameter;
+        }
+
+        public function in(string $column, string $parameter): string {
+            return $column . ' IN ' . $parameter;
         }
     }
 
@@ -251,16 +265,17 @@ namespace OCA\VocabularyTrainer\Tests {
 
     $test('lists normalized collection records and counts', static function (): void {
         $db = new FakeDatabase();
-        $builder = new FakeQueryBuilder();
-        $builder->rows = [[
+        $collectionQuery = new FakeQueryBuilder();
+        $collectionQuery->rows = [[
             'id' => '12',
             'name' => 'French',
             'source_language' => 'fr',
             'target_language' => 'de',
             'box_count' => '4',
-            'entry_count' => '9',
         ]];
-        $db->nextBuilders[] = $builder;
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = array_fill(0, 9, ['collection_id' => '12']);
+        $db->nextBuilders = [$collectionQuery, $entryQuery];
         $service = new CollectionService($db);
 
         assertSameValue([[
@@ -271,8 +286,20 @@ namespace OCA\VocabularyTrainer\Tests {
             'boxCount' => 4,
             'entryCount' => 9,
         ]], $service->getCollections('alice'), 'Collection output should use the UI shape.');
-        assertTrue(in_array(['where', 'c.user_id = :param0'], $builder->operations, true), 'List query must scope by owner.');
-        assertSameValue('alice', $builder->parameters[':param0'], 'The owner ID must be bound as a parameter.');
+        assertTrue(in_array(['where', 'c.user_id = :param0'], $collectionQuery->operations, true), 'List query must scope by owner.');
+        assertSameValue('alice', $collectionQuery->parameters[':param0'], 'The owner ID must be bound as a parameter.');
+        assertTrue(in_array(['where', 'collection_id IN :param0'], $entryQuery->operations, true), 'Entry counts must only query returned collection IDs.');
+        assertSameValue([12], $entryQuery->parameters[':param0'], 'Collection IDs must be bound as an integer array.');
+    });
+
+    $test('does not query entries when the user has no collections', static function (): void {
+        $db = new FakeDatabase();
+        $query = new FakeQueryBuilder();
+        $db->nextBuilders[] = $query;
+        $service = new CollectionService($db);
+
+        assertSameValue([], $service->getCollections('alice'), 'An account without collections should get an empty list.');
+        assertSameValue(1, count($db->builders), 'No entry query is needed for an empty collection list.');
     });
 
     $test('creates a normalized collection for the supplied owner', static function (): void {

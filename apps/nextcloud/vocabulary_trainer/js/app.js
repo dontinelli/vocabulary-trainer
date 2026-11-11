@@ -134,8 +134,8 @@
     function openEditor(collection) {
         editingId = collection ? collection.id : null;
         form.reset();
-        errorMessage.hidden = true;
-        errorMessage.textContent = '';
+        errorMessage.textContent = collectionsLoadFailed ? loadError.textContent : '';
+        errorMessage.hidden = !collectionsLoadFailed;
         document.getElementById('collection-dialog-title').textContent = collection
             ? strings.editCollection
             : strings.addCollection;
@@ -143,21 +143,32 @@
         form.elements.sourceLanguage.value = collection ? collection.sourceLanguage : '';
         form.elements.targetLanguage.value = collection ? collection.targetLanguage : '';
         form.elements.boxCount.value = collection ? collection.boxCount : 5;
+        editDialog.hidden = false;
         editDialog.showModal();
         form.elements.name.focus();
+    }
+
+    function closeDialog(dialog) {
+        if (dialog.open) {
+            dialog.close();
+        }
+        dialog.hidden = true;
     }
 
     document.getElementById('add-collection').addEventListener('click', () => openEditor(null));
 
     document.querySelectorAll('[data-close]').forEach((closeButton) => {
         closeButton.addEventListener('click', () => {
-            document.getElementById(closeButton.dataset.close).close();
+            closeDialog(document.getElementById(closeButton.dataset.close));
         });
     });
     document.querySelectorAll('dialog').forEach((dialog) => {
+        dialog.addEventListener('close', () => {
+            dialog.hidden = true;
+        });
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) {
-                dialog.close();
+                closeDialog(dialog);
             }
         });
     });
@@ -174,7 +185,11 @@
             return;
         }
 
-        const collection = collections.find((item) => item.id === Number(actionButton.dataset.id));
+        const collectionId = Number(actionButton.dataset.id);
+        if (!Number.isSafeInteger(collectionId) || collectionId < 1) {
+            return;
+        }
+        const collection = collections.find((item) => item.id === collectionId);
         if (!collection) {
             return;
         }
@@ -186,6 +201,7 @@
             removeError.hidden = true;
             removeError.textContent = '';
             removePrompt.textContent = strings.removePrompt.replace('{name}', collection.name);
+            removeDialog.hidden = false;
             removeDialog.showModal();
         }
     });
@@ -228,10 +244,15 @@
     });
 
     document.getElementById('confirm-remove').addEventListener('click', async () => {
+        if (!Number.isSafeInteger(removingId) || removingId < 1) {
+            removeError.textContent = strings.requestFailed;
+            removeError.hidden = false;
+            return;
+        }
         try {
             await request(`/${encodeURIComponent(removingId)}`, 'DELETE');
             removingId = null;
-            removeDialog.close();
+            closeDialog(removeDialog);
             if (await loadCollections()) {
                 announce(strings.collectionRemoved);
             }

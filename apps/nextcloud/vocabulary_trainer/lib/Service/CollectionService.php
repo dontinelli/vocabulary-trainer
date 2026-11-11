@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\VocabularyTrainer\Service;
 
 use InvalidArgumentException;
+use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
 class CollectionService {
@@ -21,16 +22,35 @@ class CollectionService {
                 'c.name AS name',
                 'c.source_language AS source_language',
                 'c.target_language AS target_language',
-                'c.box_count AS box_count',
-                'COUNT(e.id) AS entry_count'
+                'c.box_count AS box_count'
             )
             ->from('vocabulary_collections', 'c')
-            ->leftJoin('c', 'vocabulary_entries', 'e', 'e.collection_id = c.id')
             ->where($query->expr()->eq('c.user_id', $query->createNamedParameter($userId)))
-            ->groupBy('c.id', 'c.name', 'c.source_language', 'c.target_language', 'c.box_count', 'c.updated_at')
             ->orderBy('c.updated_at', 'DESC')
             ->executeQuery()
             ->fetchAllAssociative();
+
+        if ($rows === []) {
+            return [];
+        }
+
+        $collectionIds = array_map('intval', array_column($rows, 'id'));
+        $entryQuery = $this->db->getQueryBuilder();
+        $entryRows = $entryQuery
+            ->select('collection_id')
+            ->from('vocabulary_entries')
+            ->where($entryQuery->expr()->in(
+                'collection_id',
+                $entryQuery->createNamedParameter($collectionIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $entryCounts = [];
+        foreach ($entryRows as $entryRow) {
+            $collectionId = (int)$entryRow['collection_id'];
+            $entryCounts[$collectionId] = ($entryCounts[$collectionId] ?? 0) + 1;
+        }
 
         return array_map(static fn (array $row): array => [
             'id' => (int)$row['id'],
@@ -38,7 +58,7 @@ class CollectionService {
             'sourceLanguage' => $row['source_language'],
             'targetLanguage' => $row['target_language'],
             'boxCount' => (int)$row['box_count'],
-            'entryCount' => (int)$row['entry_count'],
+            'entryCount' => $entryCounts[(int)$row['id']] ?? 0,
         ], $rows);
     }
 

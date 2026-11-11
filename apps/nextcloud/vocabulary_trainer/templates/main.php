@@ -85,7 +85,7 @@ $strings = [
             </section>
         </div>
 
-        <dialog class="vt-dialog" id="collection-dialog" aria-labelledby="collection-dialog-title">
+        <dialog class="vt-dialog" id="collection-dialog" aria-labelledby="collection-dialog-title" hidden>
             <form id="collection-form">
                 <div class="vt-dialog-header">
                     <h2 id="collection-dialog-title"><?php p($l->t('Add collection')); ?></h2>
@@ -120,7 +120,7 @@ $strings = [
             </form>
         </dialog>
 
-        <dialog class="vt-dialog vt-dialog--confirm" id="remove-dialog" aria-labelledby="remove-dialog-title">
+        <dialog class="vt-dialog vt-dialog--confirm" id="remove-dialog" aria-labelledby="remove-dialog-title" hidden>
             <div class="vt-dialog-header">
                 <h2 id="remove-dialog-title"><?php p($l->t('Remove collection')); ?></h2>
                 <button class="vt-icon-button" type="button" data-close="remove-dialog" aria-label="<?php p($l->t('Close')); ?>">×</button>
