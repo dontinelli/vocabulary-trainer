@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Vocabulary Trainer: Run tests",
+      "type": "shell",
+      "command": "php",
+      "args": [
+        "apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Vocabulary Trainer: Validate app",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -e; find apps/nextcloud/vocabulary_trainer -type f -name '*.php' -print0 | xargs -0 -n1 php -l; node --check apps/nextcloud/vocabulary_trainer/js/app.js; php -r 'json_decode(file_get_contents(\"apps/nextcloud/vocabulary_trainer/l10n/de.json\"), true, 512, JSON_THROW_ON_ERROR);'; php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

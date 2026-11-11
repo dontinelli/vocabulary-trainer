@@ -48,6 +48,21 @@ docker compose down
 
 `docker compose down -v` also deletes the local Nextcloud and database data volumes. Use it only when you intentionally want to reset the local instance.
 
+### Tests and validation
+
+In VS Code, run **Terminal: Run Task** and choose **Vocabulary Trainer: Run tests** or **Vocabulary Trainer: Validate app**. The test task runs the app's dependency-free PHP tests; the validation task also checks PHP and JavaScript syntax and translation JSON.
+
+GitHub Actions runs the same checks on pushes and pull requests. The workflow can also be started manually from the Actions tab.
+
+To run the checks from a terminal in the repository root:
+
+```sh
+php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php
+find apps/nextcloud/vocabulary_trainer -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+node --check apps/nextcloud/vocabulary_trainer/js/app.js
+php -r 'json_decode(file_get_contents("apps/nextcloud/vocabulary_trainer/l10n/de.json"), true, 512, JSON_THROW_ON_ERROR);'
+```
+
 ## Project direction
 
 - First release interface languages: English and German.
