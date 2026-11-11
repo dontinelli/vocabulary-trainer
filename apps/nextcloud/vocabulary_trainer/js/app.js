@@ -40,6 +40,17 @@
     const bulkDeleteDialog = document.getElementById('bulk-delete-dialog');
     const bulkDeleteError = document.getElementById('bulk-delete-error');
     const targetCollection = document.getElementById('target-collection');
+    const studySetupDialog = document.getElementById('study-setup-dialog');
+    const studySetupForm = document.getElementById('study-setup-form');
+    const studySetupError = document.getElementById('study-setup-error');
+    const studyView = document.getElementById('study-view');
+    const studyQuestionView = document.getElementById('study-question-view');
+    const studyAnswerForm = document.getElementById('study-answer-form');
+    let studySession = null;
+    let studyIndex = 0;
+    let studyCorrect = 0;
+    let studyAnswered = false;
+    let saveAndAddAnotherRequested = false;
 
     async function request(path, method, data) {
         const headers = { requesttoken: OC.requestToken };
@@ -218,6 +229,8 @@
     async function openCollection(collection) {
         activeCollection = collection;
         selectedEntryIds.clear();
+        studyView.hidden = true;
+        detail.hidden = false;
         document.getElementById('detail-heading').textContent = collection.name;
         document.getElementById('detail-languages').textContent =
             `${collection.sourceLanguage.toUpperCase()} → ${collection.targetLanguage.toUpperCase()}`;
@@ -226,6 +239,213 @@
         overview.hidden = true;
         detail.hidden = false;
         await loadEntries();
+    }
+
+    function updateStudySelectionOptions() {
+        const selection = studySetupForm.elements.selection.value;
+        document.getElementById('study-box-option').hidden = selection !== 'box';
+        document.getElementById('study-error-rate-option').hidden = selection !== 'error-rate';
+        document.getElementById('study-days-option').hidden = selection !== 'not-practiced';
+    }
+
+    async function openStudySetup() {
+        if (!activeCollection) {
+            return;
+        }
+        studySetupError.hidden = true;
+        studySetupError.textContent = '';
+        studySetupForm.elements.startWithNew.checked = true;
+        studySetupForm.elements.includeFinalBox.checked = false;
+        const startButton = document.getElementById('start-study-session');
+        startButton.disabled = true;
+        const source = `${activeCollection.sourceLanguage.toUpperCase()} → ${activeCollection.targetLanguage.toUpperCase()}`;
+        const target = `${activeCollection.targetLanguage.toUpperCase()} → ${activeCollection.sourceLanguage.toUpperCase()}`;
+        studySetupForm.elements.direction.options[0].textContent = source;
+        studySetupForm.elements.direction.options[1].textContent = target;
+
+        const boxSelect = studySetupForm.elements.box;
+        boxSelect.replaceChildren();
+        for (let box = 1; box <= activeCollection.boxCount; box++) {
+            const option = document.createElement('option');
+            option.value = String(box);
+            option.textContent = `${strings.boxNumber} ${box}`;
+            boxSelect.append(option);
+        }
+
+        updateStudySelectionOptions();
+        studySetupDialog.hidden = false;
+        studySetupDialog.showModal();
+
+        try {
+            const settings = await request(`/${encodeURIComponent(activeCollection.id)}/study/settings`, 'GET');
+            studySetupForm.elements.startWithNew.checked = Boolean(settings.startWithNew);
+            studySetupForm.elements.includeFinalBox.checked = Boolean(settings.includeFinalBox);
+        } catch (error) {
+            studySetupError.textContent = error.message;
+            studySetupError.hidden = false;
+        } finally {
+            startButton.disabled = false;
+        }
+    }
+
+    async function beginStudy(event) {
+        event.preventDefault();
+        if (!activeCollection || !studySetupForm.reportValidity()) {
+            return;
+        }
+        const data = {
+            direction: studySetupForm.elements.direction.value,
+            mode: studySetupForm.elements.mode.value,
+            selection: studySetupForm.elements.selection.value,
+            box: studySetupForm.elements.box.value,
+            errorRate: studySetupForm.elements.errorRate.value,
+            days: studySetupForm.elements.days.value,
+            startWithNew: studySetupForm.elements.startWithNew.checked ? '1' : '0',
+            includeFinalBox: studySetupForm.elements.includeFinalBox.checked ? '1' : '0',
+        };
+        try {
+            const session = await request(`/${encodeURIComponent(activeCollection.id)}/study/session`, 'POST', data);
+            if (!Array.isArray(session.questions)) {
+                throw new Error(strings.invalidResponse.replace('{status}', 201));
+            }
+            studySession = session;
+            studyIndex = 0;
+            studyCorrect = 0;
+            studyAnswered = false;
+            closeDialog(studySetupDialog);
+            detail.hidden = true;
+            studyView.hidden = false;
+            document.getElementById('study-language-direction').textContent =
+                data.direction === 'source_to_target'
+                    ? `${activeCollection.sourceLanguage.toUpperCase()} → ${activeCollection.targetLanguage.toUpperCase()}`
+                    : `${activeCollection.targetLanguage.toUpperCase()} → ${activeCollection.sourceLanguage.toUpperCase()}`;
+            document.getElementById('study-empty').hidden = session.questions.length > 0;
+            document.getElementById('study-complete').hidden = true;
+            studyQuestionView.hidden = session.questions.length === 0;
+            if (session.questions.length > 0) {
+                renderStudyQuestion();
+            }
+        } catch (error) {
+            studySetupError.textContent = error.message;
+            studySetupError.hidden = false;
+        }
+    }
+
+    function renderStudyQuestion() {
+        const question = studySession.questions[studyIndex];
+        studyAnswered = false;
+        studyAnswerForm.classList.remove('is-correct', 'is-incorrect');
+        document.getElementById('study-question-progress').textContent =
+            strings.sessionProgress
+                .replace('{current}', studyIndex + 1)
+                .replace('{total}', studySession.questions.length);
+        document.getElementById('study-prompt').textContent = question.prompt;
+        document.getElementById('study-answer-area').replaceChildren();
+        document.getElementById('study-answer-error').hidden = true;
+        document.getElementById('study-feedback').hidden = true;
+        document.getElementById('continue-study').hidden = true;
+        document.getElementById('submit-study-answer').hidden = false;
+
+        const answerArea = document.getElementById('study-answer-area');
+        if (question.type === 'multiple-choice') {
+            const choices = makeElement('div', 'vt-study-choices');
+            question.choices.forEach((choice) => {
+                const label = makeElement('label', 'vt-study-choice');
+                const radio = document.createElement('input');
+                radio.type = 'radio';
+                radio.name = 'answer';
+                radio.value = choice;
+                radio.required = true;
+                label.append(radio, makeElement('span', '', choice));
+                choices.append(label);
+            });
+            answerArea.append(choices);
+            choices.querySelector('input')?.focus();
+        } else {
+            const answer = document.createElement('textarea');
+            answer.name = 'answer';
+            answer.rows = 2;
+            answer.required = true;
+            answer.autocomplete = 'off';
+            answer.setAttribute('aria-label', strings.typedMode);
+            answerArea.append(answer);
+            answer.focus();
+        }
+    }
+
+    async function submitStudyAnswer(event) {
+        event.preventDefault();
+        if (!studySession || studyAnswered || !activeCollection) {
+            return;
+        }
+        if (!studyAnswerForm.reportValidity()) {
+            return;
+        }
+        const question = studySession.questions[studyIndex];
+        const answer = new FormData(studyAnswerForm).get('answer');
+        if (typeof answer !== 'string' || answer.trim() === '') {
+            const error = document.getElementById('study-answer-error');
+            error.textContent = strings.answerRequired;
+            error.hidden = false;
+            return;
+        }
+
+        const submitButton = document.getElementById('submit-study-answer');
+        submitButton.disabled = true;
+        try {
+            const result = await request(
+                `/${encodeURIComponent(activeCollection.id)}/study/entries/${encodeURIComponent(question.entryId)}/answer`,
+                'POST',
+                { direction: studySession.direction, answer },
+            );
+            studyAnswered = true;
+            if (result.correct) {
+                studyCorrect++;
+                studyAnswerForm.classList.add('is-correct');
+                studyAnswerForm.classList.remove('is-incorrect');
+                document.getElementById('study-feedback').textContent = strings.correctAnswer;
+            } else {
+                studyAnswerForm.classList.add('is-incorrect');
+                studyAnswerForm.classList.remove('is-correct');
+                document.getElementById('study-feedback').textContent =
+                    strings.incorrectAnswer.replace('{answer}', () => result.correctAnswer);
+            }
+            document.getElementById('study-feedback').hidden = false;
+            submitButton.hidden = true;
+            document.getElementById('continue-study').hidden = false;
+            studyAnswerForm.querySelectorAll('input, textarea').forEach((input) => {
+                input.disabled = true;
+            });
+        } catch (error) {
+            const message = document.getElementById('study-answer-error');
+            message.textContent = error.message;
+            message.hidden = false;
+        } finally {
+            submitButton.disabled = false;
+        }
+    }
+
+    function continueStudy() {
+        if (!studySession || !studyAnswered) {
+            return;
+        }
+        studyIndex++;
+        if (studyIndex >= studySession.questions.length) {
+            studyQuestionView.hidden = true;
+            document.getElementById('study-complete').hidden = false;
+            document.getElementById('study-summary').textContent =
+                strings.sessionSummary
+                    .replace('{correct}', studyCorrect)
+                    .replace('{total}', studySession.questions.length);
+            return;
+        }
+        renderStudyQuestion();
+    }
+
+    function exitStudy() {
+        studyView.hidden = true;
+        detail.hidden = false;
+        studySession = null;
     }
 
     async function loadEntries() {
@@ -253,6 +473,7 @@
 
     function openEntryEditor(entry = null) {
         editingEntryId = entry ? entry.id : null;
+        saveAndAddAnotherRequested = false;
         entryForm.reset();
         document.getElementById('save-entry-add-another').hidden = entry !== null;
         entryFormError.hidden = true;
@@ -307,6 +528,17 @@
                 closeDialog(dialog);
             }
         });
+        document.getElementById('save-entry-add-another').addEventListener('click', () => {
+            saveAndAddAnotherRequested = true;
+        });
+        entryForm.addEventListener('click', (event) => {
+            if (event.target.closest('button[type="submit"]:not(#save-entry-add-another)')) {
+                saveAndAddAnotherRequested = false;
+            }
+        });
+        entryForm.addEventListener('invalid', () => {
+            saveAndAddAnotherRequested = false;
+        }, true);
     });
 
     root.addEventListener('click', (event) => {
@@ -410,6 +642,14 @@
         selectedEntryIds.clear();
     });
 
+    document.getElementById('start-learning').addEventListener('click', openStudySetup);
+    studySetupForm.elements.selection.addEventListener('change', updateStudySelectionOptions);
+    studySetupForm.addEventListener('submit', beginStudy);
+    studyAnswerForm.addEventListener('submit', submitStudyAnswer);
+    document.getElementById('continue-study').addEventListener('click', continueStudy);
+    document.getElementById('exit-study').addEventListener('click', exitStudy);
+    document.getElementById('finish-study').addEventListener('click', exitStudy);
+
     document.getElementById('add-entry').addEventListener('click', () => openEntryEditor());
 
     entryList.addEventListener('change', (event) => {
@@ -461,7 +701,9 @@
         }
 
         const wasNewEntry = editingEntryId === null;
-        const saveAndAddAnother = wasNewEntry && event.submitter?.id === 'save-entry-add-another';
+        const saveAndAddAnother = wasNewEntry &&
+            (event.submitter?.id === 'save-entry-add-another' || saveAndAddAnotherRequested);
+        saveAndAddAnotherRequested = false;
         const method = wasNewEntry ? 'POST' : 'PUT';
         const path = `/${encodeURIComponent(activeCollection.id)}/entries` +
             (wasNewEntry ? '' : `/${encodeURIComponent(editingEntryId)}`);

@@ -69,8 +69,9 @@ The PHP tests use lightweight Nextcloud and database test doubles. They cover co
 The installable app is in [`apps/nextcloud/vocabulary_trainer`](../apps/nextcloud/vocabulary_trainer/). Its main parts are:
 
 - `appinfo/routes.php` — app routes
-- `lib/Controller/` — Nextcloud request handling
+- `lib/Controller/` — Nextcloud request handling, including learning-session endpoints
 - `lib/Service/CollectionService.php` — collection and word-pair data operations
+- `lib/Service/LearningService.php` — session generation, answer checking, and progress scheduling
 - `lib/Migration/` — versioned database schema migrations
 - `templates/`, `js/`, and `css/` — user interface
 
@@ -104,6 +105,20 @@ Collection create/update validates names, language tags, distinct source and tar
 
 Entry operations verify ownership of the source collection and, for moves, the destination collection. Bulk operations accept 1–500 unique IDs and verify that every selected pair belongs to the source collection before changing data.
 
+### Learning
+
+| Method | Route | Action |
+| --- | --- | --- |
+| GET | `/collections/{collectionId}/study/settings` | Read the user's learning preferences |
+| POST | `/collections/{collectionId}/study/session` | Start a session from a selection and mode |
+| POST | `/collections/{collectionId}/study/entries/{entryId}/answer` | Check an answer and update progress |
+
+Learning progress is per user, word pair, and translation direction. Typed answers are case-insensitive and ignore leading/trailing and repeated whitespace. Multiple-choice and mixed modes require more than 10 matching pairs; choices are drawn from the collection in the answer language. Mixed mode randomly chooses a question type for each pair.
+
+Automatic sessions include new pairs and due reviews. The user's `start_with_new` preference puts new pairs first; otherwise the order is mixed. Correct answers advance one box; incorrect answers reset to box 1. Review intervals are 1, 3, 7, 15, 30, 60, 120, 240, and 480 days for boxes 2–10. The collection's final box is excluded from automatic sessions unless `include_final_box` is enabled. If enabled but no due timestamp exists, its due date is calculated from the last answer.
+
+Targeted sessions can select new pairs, one box, pairs whose lifetime error percentage in that direction is above a threshold, or pairs not practiced for a specified number of days. Each matching pair is asked once per session.
+
 ## Product direction
 
 Vocabulary Trainer is being developed as a Nextcloud app first, with a possible Android client later. Keep the API and learning model suitable for that future client.
@@ -111,8 +126,8 @@ Vocabulary Trainer is being developed as a Nextcloud app first, with a possible 
 - Interface languages: English and German.
 - Vocabulary languages are user-defined per collection, stored as BCP 47 tags.
 - Collections are private by default, and all collection operations must be scoped to the authenticated user.
-- Planned study modes include multiple choice and typed answers in either translation direction.
-- Planned progress is tracked per user, word pair, and direction. Correct answers move an entry up one box; incorrect answers return it to the first box.
+- Study modes include multiple choice and typed answers in either translation direction; mixed mode selects randomly per question.
+- Progress is tracked per user, word pair, and direction. Correct answers move an entry up one box; incorrect answers return it to the first box.
 - Box count is configurable per collection.
 - Sharing and import/export may be future extensions.
 

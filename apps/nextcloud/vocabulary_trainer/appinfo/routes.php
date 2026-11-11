@@ -14,5 +14,8 @@ return [
         ['name' => 'entry#bulkDestroy', 'url' => '/collections/{collectionId}/entries', 'verb' => 'DELETE'],
         ['name' => 'entry#update', 'url' => '/collections/{collectionId}/entries/{entryId}', 'verb' => 'PUT'],
         ['name' => 'entry#destroy', 'url' => '/collections/{collectionId}/entries/{entryId}', 'verb' => 'DELETE'],
+        ['name' => 'learning#settings', 'url' => '/collections/{collectionId}/study/settings', 'verb' => 'GET'],
+        ['name' => 'learning#start', 'url' => '/collections/{collectionId}/study/session', 'verb' => 'POST'],
+        ['name' => 'learning#answer', 'url' => '/collections/{collectionId}/study/entries/{entryId}/answer', 'verb' => 'POST'],
     ],
 ];

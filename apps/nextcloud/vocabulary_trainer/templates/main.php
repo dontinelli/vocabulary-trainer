@@ -41,6 +41,38 @@ $strings = [
     'noEntries' => $l->t('No word pairs yet. Add one to get started.'),
     'entriesLoadFailed' => $l->t('Could not load word pairs.'),
     'requestFailed' => $l->t('The request could not be completed.'),
+    'startLearning' => $l->t('Start learning'),
+    'learningSetup' => $l->t('Set up a learning session'),
+    'direction' => $l->t('Translation direction'),
+    'sourceToTarget' => $l->t('Source to target'),
+    'targetToSource' => $l->t('Target to source'),
+    'learningMode' => $l->t('Learning mode'),
+    'typedMode' => $l->t('Typed answer'),
+    'multipleChoiceMode' => $l->t('Multiple choice'),
+    'mixedMode' => $l->t('Mixed'),
+    'choiceModeLimit' => $l->t('Multiple choice and mixed modes require at least 11 matching word pairs.'),
+    'sessionSelection' => $l->t('Pairs to study'),
+    'automaticSelection' => $l->t('New and due pairs'),
+    'newPairsSelection' => $l->t('New pairs'),
+    'boxSelection' => $l->t('Pairs in a box'),
+    'errorRateSelection' => $l->t('Error rate above a threshold'),
+    'notPracticedSelection' => $l->t('Not practiced recently'),
+    'boxNumber' => $l->t('Box'),
+    'errorRateThreshold' => $l->t('Error rate greater than'),
+    'daysSincePractice' => $l->t('Days since last practice'),
+    'startWithNew' => $l->t('Ask new pairs first'),
+    'includeFinalBox' => $l->t('Include the final box in automatic sessions'),
+    'startSession' => $l->t('Start session'),
+    'noQuestions' => $l->t('No word pairs match this session.'),
+    'sessionProgress' => $l->t('Question {current} of {total}'),
+    'submitAnswer' => $l->t('Check answer'),
+    'continueSession' => $l->t('Continue'),
+    'correctAnswer' => $l->t('Correct!'),
+    'incorrectAnswer' => $l->t('Not quite. The correct answer is: {answer}'),
+    'sessionComplete' => $l->t('Session complete'),
+    'sessionSummary' => $l->t('You answered {correct} of {total} correctly.'),
+    'returnToCollection' => $l->t('Return to collection'),
+    'answerRequired' => $l->t('Enter or select an answer first.'),
 ];
 ?>
 
@@ -56,10 +88,6 @@ $strings = [
                     <h1><?php p($l->t('Learn at your pace')); ?></h1>
                     <p class="vt-subtitle"><?php p($l->t('Organize your vocabulary and keep track of your learning.')); ?></p>
                 </div>
-                <button class="vt-button vt-button--primary" id="add-collection" type="button">
-                    <span aria-hidden="true">+</span>
-                    <?php p($l->t('Add collection')); ?>
-                </button>
             </header>
 
             <p class="vt-info-notice" role="status">
@@ -98,6 +126,10 @@ $strings = [
                         <h2 id="collections-heading"><?php p($l->t('Your collections')); ?></h2>
                         <p><?php p($l->t('Keep vocabulary organized by language pair.')); ?></p>
                     </div>
+                    <button class="vt-button vt-button--primary" id="add-collection" type="button">
+                        <span aria-hidden="true">+</span>
+                        <?php p($l->t('Add collection')); ?>
+                    </button>
                 </div>
                 <div class="vt-collection-list" id="collection-list" aria-live="polite"></div>
                 <div class="vt-empty-state" id="collection-empty" hidden>
@@ -121,6 +153,9 @@ $strings = [
                     <button class="vt-button vt-button--primary" type="button" id="add-entry">
                         <span aria-hidden="true">+</span>
                         <?php p($l->t('Add word pair')); ?>
+                    </button>
+                    <button class="vt-button vt-button--primary" type="button" id="start-learning">
+                        <?php p($l->t('Start learning')); ?>
                     </button>
                 </div>
                 <section class="vt-collection-dashboard" aria-labelledby="collection-dashboard-heading">
@@ -166,6 +201,39 @@ $strings = [
                     <h3><?php p($l->t('No word pairs yet. Add one to get started.')); ?></h3>
                 </div>
             </section>
+
+            <section class="vt-section vt-study-view" id="study-view" aria-labelledby="study-heading" hidden>
+                <div class="vt-detail-heading">
+                    <div>
+                        <button class="vt-button vt-button--back" type="button" id="exit-study">
+                            ← <?php p($l->t('Return to collection')); ?>
+                        </button>
+                        <h2 id="study-heading"><?php p($l->t('Learning session')); ?></h2>
+                        <p id="study-language-direction" class="vt-card-languages"></p>
+                    </div>
+                </div>
+                <div id="study-question-view" hidden>
+                    <p id="study-question-progress" class="vt-study-progress"></p>
+                    <div class="vt-study-card">
+                        <h3 id="study-prompt"></h3>
+                        <form id="study-answer-form" class="vt-study-answer-form">
+                            <div id="study-answer-area"></div>
+                            <p class="vt-error-alert" id="study-answer-error" role="alert" hidden></p>
+                            <button class="vt-button vt-button--primary" id="submit-study-answer" type="submit"><?php p($l->t('Check answer')); ?></button>
+                        </form>
+                        <p class="vt-study-feedback" id="study-feedback" role="status" hidden></p>
+                        <button class="vt-button vt-button--primary" id="continue-study" type="button" hidden><?php p($l->t('Continue')); ?></button>
+                    </div>
+                </div>
+                <div class="vt-empty-state" id="study-empty" hidden>
+                    <h3><?php p($l->t('No word pairs match this session.')); ?></h3>
+                </div>
+                <div class="vt-empty-state" id="study-complete" hidden>
+                    <h3><?php p($l->t('Session complete')); ?></h3>
+                    <p id="study-summary"></p>
+                    <button class="vt-button" type="button" id="finish-study"><?php p($l->t('Return to collection')); ?></button>
+                </div>
+            </section>
         </div>
 
         <dialog class="vt-dialog" id="collection-dialog" aria-labelledby="collection-dialog-title" hidden>
@@ -199,6 +267,68 @@ $strings = [
                 <div class="vt-dialog-actions">
                     <button class="vt-button" type="button" data-close="collection-dialog"><?php p($l->t('Cancel')); ?></button>
                     <button class="vt-button vt-button--primary" type="submit"><?php p($l->t('Save collection')); ?></button>
+                </div>
+            </form>
+        </dialog>
+
+        <dialog class="vt-dialog" id="study-setup-dialog" aria-labelledby="study-setup-title" hidden>
+            <form id="study-setup-form">
+                <div class="vt-dialog-header">
+                    <h2 id="study-setup-title"><?php p($l->t('Set up a learning session')); ?></h2>
+                    <button class="vt-icon-button" type="button" data-close="study-setup-dialog" aria-label="<?php p($l->t('Close')); ?>">×</button>
+                </div>
+                <p class="vt-error-alert" id="study-setup-error" role="alert" hidden></p>
+                <div class="vt-form-fields">
+                    <label>
+                        <span><?php p($l->t('Translation direction')); ?></span>
+                        <select name="direction" required>
+                            <option value="source_to_target"></option>
+                            <option value="target_to_source"></option>
+                        </select>
+                    </label>
+                    <label>
+                        <span><?php p($l->t('Learning mode')); ?></span>
+                        <select name="mode" required>
+                            <option value="typed"><?php p($l->t('Typed answer')); ?></option>
+                            <option value="multiple-choice"><?php p($l->t('Multiple choice')); ?></option>
+                            <option value="mixed"><?php p($l->t('Mixed')); ?></option>
+                        </select>
+                    </label>
+                    <small><?php p($l->t('Multiple choice and mixed modes require at least 11 matching word pairs.')); ?></small>
+                    <label>
+                        <span><?php p($l->t('Pairs to study')); ?></span>
+                        <select name="selection" required>
+                            <option value="automatic"><?php p($l->t('New and due pairs')); ?></option>
+                            <option value="new"><?php p($l->t('New pairs')); ?></option>
+                            <option value="box"><?php p($l->t('Pairs in a box')); ?></option>
+                            <option value="error-rate"><?php p($l->t('Error rate above a threshold')); ?></option>
+                            <option value="not-practiced"><?php p($l->t('Not practiced recently')); ?></option>
+                        </select>
+                    </label>
+                    <label id="study-box-option" hidden>
+                        <span><?php p($l->t('Box')); ?></span>
+                        <select name="box"></select>
+                    </label>
+                    <label id="study-error-rate-option" hidden>
+                        <span><?php p($l->t('Error rate greater than')); ?> (%)</span>
+                        <input name="errorRate" type="number" min="0" max="100" value="50">
+                    </label>
+                    <label id="study-days-option" hidden>
+                        <span><?php p($l->t('Days since last practice')); ?></span>
+                        <input name="days" type="number" min="1" max="3650" value="7">
+                    </label>
+                    <label class="vt-checkbox-field">
+                        <input name="startWithNew" type="checkbox" checked>
+                        <span><?php p($l->t('Ask new pairs first')); ?></span>
+                    </label>
+                    <label class="vt-checkbox-field">
+                        <input name="includeFinalBox" type="checkbox">
+                        <span><?php p($l->t('Include the final box in automatic sessions')); ?></span>
+                    </label>
+                </div>
+                <div class="vt-dialog-actions">
+                    <button class="vt-button" type="button" data-close="study-setup-dialog"><?php p($l->t('Cancel')); ?></button>
+                    <button class="vt-button vt-button--primary" id="start-study-session" type="submit"><?php p($l->t('Start session')); ?></button>
                 </div>
             </form>
         </dialog>
