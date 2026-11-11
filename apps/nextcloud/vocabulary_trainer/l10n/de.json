@@ -1,0 +1,43 @@
+{
+  "translations": {
+    "": {
+      "pluralForm": "nplurals=2; plural=(n != 1);",
+      "language": "de",
+      "version": "1.0"
+    },
+    "Add collection": "Sammlung hinzufügen",
+    "Edit collection": "Sammlung bearbeiten",
+    "Remove collection": "Sammlung entfernen",
+    "Collection name": "Name der Sammlung",
+    "Source language tag": "Sprachkennzeichen der Ausgangssprache",
+    "Target language tag": "Sprachkennzeichen der Zielsprache",
+    "Study boxes": "Lernboxen",
+    "entries": "Einträge",
+    "Edit": "Bearbeiten",
+    "Remove": "Entfernen",
+    "Save collection": "Sammlung speichern",
+    "Cancel": "Abbrechen",
+    "Remove \"{name}\"? This preview action cannot be undone.": "\"{name}\" entfernen? Diese Aktion in der Vorschau kann nicht rückgängig gemacht werden.",
+    "Close": "Schließen",
+    "Choose different source and target languages.": "Wähle unterschiedliche Ausgangs- und Zielsprachen.",
+    "Collection added to this preview.": "Sammlung zur Vorschau hinzugefügt.",
+    "Preview collection updated.": "Sammlung in der Vorschau aktualisiert.",
+    "Preview collection removed.": "Sammlung aus der Vorschau entfernt.",
+    "Vocabulary Trainer": "Vokabeltrainer",
+    "Learn at your pace": "Lerne in deinem Tempo",
+    "Organize your vocabulary and keep track of your learning.": "Organisiere deine Vokabeln und behalte deinen Lernfortschritt im Blick.",
+    "Preview only: collection changes are temporary and are not saved yet.": "Nur eine Vorschau: Änderungen an Sammlungen sind vorübergehend und werden noch nicht gespeichert.",
+    "Your progress": "Dein Lernfortschritt",
+    "A summary of your recent learning.": "Eine Zusammenfassung deiner letzten Lerneinheiten.",
+    "Progress dashboard placeholder": "Platzhalter für die Lernfortschrittsübersicht",
+    "Your learning overview will appear here": "Hier erscheint deine Lernübersicht",
+    "Study some vocabulary to see your progress, review activity, and collection statistics.": "Lerne einige Vokabeln, um deinen Fortschritt, Wiederholungen und Sammlungsstatistiken zu sehen.",
+    "Reviewed today": "Heute wiederholt",
+    "Learned words": "Gelernte Wörter",
+    "Your collections": "Deine Sammlungen",
+    "Keep vocabulary organized by language pair.": "Ordne Vokabeln nach Sprachpaaren.",
+    "No collections yet": "Noch keine Sammlungen",
+    "Create a collection to organize vocabulary by language pair.": "Erstelle eine Sammlung, um Vokabeln nach Sprachpaaren zu ordnen.",
+    "Choose between 2 and 10 boxes for this collection.": "Wähle für diese Sammlung zwischen 2 und 10 Lernboxen."
+  }
+}

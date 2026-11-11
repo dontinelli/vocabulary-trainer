@@ -21,6 +21,12 @@ apps/
         ├── appinfo/
         │   ├── info.xml
         │   └── routes.php
+        ├── css/
+        │   └── app.css
+        ├── l10n/
+        │   └── de.json
+        ├── js/
+        │   └── app.js
         ├── lib/
         │   ├── AppInfo/
         │   │   └── Application.php
@@ -30,6 +36,8 @@ apps/
         │   │   └── Version1000Date20261111092900.php
         │   └── Service/
         │       └── CollectionService.php
+        ├── templates/
+        │   └── main.php
         └── README.md
 ```
 
@@ -40,6 +48,10 @@ This is intentionally a minimal app skeleton. It is not yet a full product imple
 ## Installation setup
 
 The app's first schema setup is a versioned database migration in `lib/Migration`. Nextcloud runs it when the app is enabled and applies later migrations during app upgrades. The migration creates the collections, entries, progress, and user-settings tables; each collection stores its own box count, while `vocabulary_user_settings` stores the initial per-user study settings. It does not seed user data or alter schema during requests.
+
+## Interface draft
+
+The app page currently provides a responsive Nextcloud-themed dashboard placeholder and a collection-management UI preview. Add, edit, and remove controls work against sample in-memory data for the current page only; the app does not yet have collection persistence or an API, so changes are not saved. The layout uses Nextcloud theme variables, keyboard-operable controls, accessible dialogs, and translated interface text.
 
 ## Data removal
 

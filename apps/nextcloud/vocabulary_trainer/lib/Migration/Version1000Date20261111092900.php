@@ -12,9 +12,23 @@ class Version1000Date20261111092900 extends SimpleMigrationStep {
         /** @var ISchemaWrapper $schema */
         $schema = $schemaClosure();
 
+        if ($schema->hasTable('vocabulary_collections')) {
+            $schema->getTable('vocabulary_collections')->modifyColumn('id', [
+                'length' => 20,
+                'unsigned' => true,
+                'autoincrement' => true,
+                'notnull' => true,
+            ]);
+        }
+
         if (!$schema->hasTable('vocabulary_collections')) {
             $table = $schema->createTable('vocabulary_collections');
-            $table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
+            $table->addColumn('id', 'bigint', [
+                'length' => 20,
+                'unsigned' => true,
+                'autoincrement' => true,
+                'notnull' => true,
+            ]);
             $table->addColumn('user_id', 'string', ['length' => 255, 'notnull' => true]);
             $table->addColumn('name', 'string', ['length' => 255, 'notnull' => true]);
             $table->addColumn('description', 'text', ['notnull' => false]);
@@ -29,8 +43,17 @@ class Version1000Date20261111092900 extends SimpleMigrationStep {
 
         if (!$schema->hasTable('vocabulary_entries')) {
             $table = $schema->createTable('vocabulary_entries');
-            $table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
-            $table->addColumn('collection_id', 'bigint', ['notnull' => true]);
+            $table->addColumn('id', 'bigint', [
+                'length' => 20,
+                'unsigned' => true,
+                'autoincrement' => true,
+                'notnull' => true,
+            ]);
+            $table->addColumn('collection_id', 'bigint', [
+                'length' => 20,
+                'unsigned' => true,
+                'notnull' => true,
+            ]);
             $table->addColumn('source_term', 'text', ['notnull' => true]);
             $table->addColumn('target_term', 'text', ['notnull' => true]);
             $table->addColumn('notes', 'text', ['notnull' => false]);
@@ -49,9 +72,18 @@ class Version1000Date20261111092900 extends SimpleMigrationStep {
 
         if (!$schema->hasTable('vocabulary_progress')) {
             $table = $schema->createTable('vocabulary_progress');
-            $table->addColumn('id', 'bigint', ['autoincrement' => true, 'notnull' => true]);
+            $table->addColumn('id', 'bigint', [
+                'length' => 20,
+                'unsigned' => true,
+                'autoincrement' => true,
+                'notnull' => true,
+            ]);
             $table->addColumn('user_id', 'string', ['length' => 255, 'notnull' => true]);
-            $table->addColumn('entry_id', 'bigint', ['notnull' => true]);
+            $table->addColumn('entry_id', 'bigint', [
+                'length' => 20,
+                'unsigned' => true,
+                'notnull' => true,
+            ]);
             $table->addColumn('direction', 'string', ['length' => 32, 'notnull' => true]);
             $table->addColumn('box', 'integer', ['default' => 1, 'notnull' => true]);
             $table->addColumn('answered', 'integer', ['default' => 0, 'notnull' => true]);
