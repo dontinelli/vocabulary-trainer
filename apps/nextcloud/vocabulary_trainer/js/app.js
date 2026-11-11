@@ -8,11 +8,10 @@
 
     const strings = JSON.parse(root.dataset.strings);
 
-    const collections = [
-        { id: 1, name: 'English – German basics', sourceLanguage: 'en', targetLanguage: 'de', boxCount: 5, entryCount: 24 },
-        { id: 2, name: 'French – Spanish practice', sourceLanguage: 'fr', targetLanguage: 'es', boxCount: 3, entryCount: 12 },
-    ];
-    let nextId = 3;
+    const collections = [];
+    const collectionsUrl = OC.generateUrl('/apps/vocabulary_trainer/collections');
+    let collectionsLoaded = false;
+    let collectionsLoadFailed = false;
     let editingId = null;
     let removingId = null;
 
@@ -22,8 +21,51 @@
     const removeDialog = document.getElementById('remove-dialog');
     const form = document.getElementById('collection-form');
     const errorMessage = document.getElementById('collection-form-error');
+    const loadError = document.getElementById('collection-load-error');
+    const removeError = document.getElementById('remove-error');
     const announcement = document.getElementById('collection-announcement');
     const removePrompt = document.getElementById('remove-prompt');
+
+    async function request(path, method, data) {
+        const headers = { requesttoken: OC.requestToken };
+        const options = { method, headers };
+        if (data) {
+            headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8';
+            options.body = new URLSearchParams(data).toString();
+        }
+
+        const response = await fetch(`${collectionsUrl}${path}`, options);
+        let result;
+        try {
+            result = await response.json();
+        } catch {
+            throw new Error(strings.requestFailed);
+        }
+        if (!response.ok) {
+            throw new Error(result.error || strings.requestFailed);
+        }
+        return result;
+    }
+
+    async function loadCollections() {
+        try {
+            const result = await request('', 'GET');
+            collections.splice(0, collections.length, ...result);
+            collectionsLoadFailed = false;
+            loadError.hidden = true;
+            collectionsLoaded = true;
+            render();
+            return true;
+        } catch (error) {
+            collectionsLoadFailed = true;
+            loadError.textContent = error.message;
+            loadError.hidden = false;
+            collectionsLoaded = true;
+            announce(error.message);
+            render();
+            return false;
+        }
+    }
 
     function announce(message) {
         announcement.textContent = message;
@@ -50,7 +92,7 @@
 
     function render() {
         list.replaceChildren();
-        emptyState.hidden = collections.length > 0;
+        emptyState.hidden = !collectionsLoaded || collectionsLoadFailed || collections.length > 0;
 
         collections.forEach((collection) => {
             const card = makeElement('article', 'vt-collection-card');
@@ -75,6 +117,7 @@
         editingId = collection ? collection.id : null;
         form.reset();
         errorMessage.hidden = true;
+        errorMessage.textContent = '';
         document.getElementById('collection-dialog-title').textContent = collection
             ? strings.editCollection
             : strings.addCollection;
@@ -115,12 +158,14 @@
             openEditor(collection);
         } else {
             removingId = collection.id;
+            removeError.hidden = true;
+            removeError.textContent = '';
             removePrompt.textContent = strings.removePrompt.replace('{name}', collection.name);
             removeDialog.showModal();
         }
     });
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
         event.preventDefault();
         if (!form.reportValidity()) {
             return;
@@ -143,31 +188,34 @@
             boxCount: Number(form.elements.boxCount.value),
         };
 
-        if (editingId === null) {
-            collections.push({ id: nextId++, ...values, entryCount: 0 });
-            announce(strings.collectionCreated);
-        } else {
-            const index = collections.findIndex((collection) => collection.id === editingId);
-            if (index >= 0) {
-                collections[index] = { ...collections[index], ...values };
+        const method = editingId === null ? 'POST' : 'PUT';
+        const path = editingId === null ? '' : `/${encodeURIComponent(editingId)}`;
+        try {
+            await request(path, method, values);
+            editDialog.close();
+            if (await loadCollections()) {
+                announce(editingId === null ? strings.collectionCreated : strings.collectionUpdated);
             }
-            announce(strings.collectionUpdated);
+        } catch (error) {
+            errorMessage.textContent = error.message;
+            errorMessage.hidden = false;
         }
-
-        editDialog.close();
-        render();
     });
 
-    document.getElementById('confirm-remove').addEventListener('click', () => {
-        const index = collections.findIndex((collection) => collection.id === removingId);
-        if (index >= 0) {
-            collections.splice(index, 1);
-            render();
-            announce(strings.collectionRemoved);
+    document.getElementById('confirm-remove').addEventListener('click', async () => {
+        try {
+            await request(`/${encodeURIComponent(removingId)}`, 'DELETE');
+            removingId = null;
+            removeDialog.close();
+            if (await loadCollections()) {
+                announce(strings.collectionRemoved);
+            }
+        } catch (error) {
+            removeError.textContent = error.message;
+            removeError.hidden = false;
         }
-        removingId = null;
-        removeDialog.close();
     });
 
     render();
+    loadCollections();
 }());

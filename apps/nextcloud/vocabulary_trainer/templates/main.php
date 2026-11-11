@@ -9,11 +9,12 @@ $strings = [
     'entries' => $l->t('entries'),
     'edit' => $l->t('Edit'),
     'remove' => $l->t('Remove'),
-    'removePrompt' => $l->t('Remove "{name}"? This preview action cannot be undone.'),
+    'removePrompt' => $l->t('Remove "{name}" and all its entries? This cannot be undone.'),
     'languageError' => $l->t('Choose different source and target languages.'),
-    'collectionCreated' => $l->t('Collection added to this preview.'),
-    'collectionUpdated' => $l->t('Preview collection updated.'),
-    'collectionRemoved' => $l->t('Preview collection removed.'),
+    'collectionCreated' => $l->t('Collection saved.'),
+    'collectionUpdated' => $l->t('Collection updated.'),
+    'collectionRemoved' => $l->t('Collection removed.'),
+    'requestFailed' => $l->t('The request failed. Please try again.'),
 ];
 ?>
 
@@ -32,8 +33,8 @@ $strings = [
                 </button>
             </header>
 
-            <p class="vt-preview-notice" role="status">
-                <?php p($l->t('Preview only: collection changes are temporary and are not saved yet.')); ?>
+            <p class="vt-info-notice" role="status">
+                <?php p($l->t('Your collections are saved to your Nextcloud account.')); ?>
             </p>
 
             <section class="vt-section" aria-labelledby="progress-heading">
@@ -69,6 +70,7 @@ $strings = [
                         <p><?php p($l->t('Keep vocabulary organized by language pair.')); ?></p>
                     </div>
                 </div>
+                <p class="vt-form-error" id="collection-load-error" role="alert" hidden></p>
                 <div class="vt-collection-list" id="collection-list" aria-live="polite"></div>
                 <div class="vt-empty-state" id="collection-empty" hidden>
                     <span class="vt-empty-icon" aria-hidden="true">＋</span>
@@ -120,6 +122,7 @@ $strings = [
                 <button class="vt-icon-button" type="button" data-close="remove-dialog" aria-label="<?php p($l->t('Close')); ?>">×</button>
             </div>
             <p id="remove-prompt"></p>
+            <p class="vt-form-error" id="remove-error" role="alert" hidden></p>
             <div class="vt-dialog-actions">
                 <button class="vt-button" type="button" data-close="remove-dialog"><?php p($l->t('Cancel')); ?></button>
                 <button class="vt-button vt-button--danger" id="confirm-remove" type="button"><?php p($l->t('Remove collection')); ?></button>

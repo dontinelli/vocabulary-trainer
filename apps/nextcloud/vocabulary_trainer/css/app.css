@@ -107,7 +107,7 @@
     color: #fff;
 }
 
-.vt-preview-notice {
+.vt-info-notice {
     margin: 0 0 32px;
     padding: 12px 16px;
     border-inline-start: 4px solid var(--vt-primary);

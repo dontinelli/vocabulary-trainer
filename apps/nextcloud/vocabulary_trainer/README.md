@@ -31,6 +31,7 @@ apps/
         │   ├── AppInfo/
         │   │   └── Application.php
         │   ├── Controller/
+        │   │   ├── CollectionController.php
         │   │   └── PageController.php
         │   ├── Migration/
         │   │   └── Version1000Date20261111092900.php
@@ -49,9 +50,22 @@ This is intentionally a minimal app skeleton. It is not yet a full product imple
 
 The app's first schema setup is a versioned database migration in `lib/Migration`. Nextcloud runs it when the app is enabled and applies later migrations during app upgrades. The migration creates the collections, entries, progress, and user-settings tables; each collection stores its own box count, while `vocabulary_user_settings` stores the initial per-user study settings. It does not seed user data or alter schema during requests.
 
-## Interface draft
+## Collections API
 
-The app page currently provides a responsive Nextcloud-themed dashboard placeholder and a collection-management UI preview. Add, edit, and remove controls work against sample in-memory data for the current page only; the app does not yet have collection persistence or an API, so changes are not saved. The layout uses Nextcloud theme variables, keyboard-operable controls, accessible dialogs, and translated interface text.
+The collection interface uses authenticated Nextcloud app routes and persists changes in `vocabulary_collections`:
+
+| Method | Route | Action |
+| --- | --- | --- |
+| GET | `/apps/vocabulary_trainer/collections` | List the signed-in user's collections and entry counts |
+| POST | `/apps/vocabulary_trainer/collections` | Create a collection |
+| PUT | `/apps/vocabulary_trainer/collections/{id}` | Update a collection |
+| DELETE | `/apps/vocabulary_trainer/collections/{id}` | Delete a collection and its dependent entries |
+
+Collection writes require Nextcloud's request-token/CSRF protection. The owner ID comes from the signed-in session and is never accepted from request data. Create and update validate collection names, language tags, distinct source and target languages, and the 2–10 study-box range. Records belonging to other users are not returned or modifiable through these routes.
+
+Collections are persistent. Entry management, study sessions, and progress tracking remain future work; the current dashboard statistics are still placeholders.
+
+The layout uses Nextcloud theme variables, keyboard-operable controls, accessible dialogs, and translated interface text.
 
 ## Data removal
 
