@@ -9,8 +9,10 @@ Table: `vocabulary_collections`
 | id | bigint / int PK | internal identifier |
 | user_id | varchar(255) | owning Nextcloud user |
 | name | varchar(255) | collection title |
+| description | text nullable | collection description |
 | source_language | varchar(64) | BCP 47 language tag, user-selected |
 | target_language | varchar(64) | BCP 47 language tag, user-selected |
+| box_count | int | default 5, allowed range 2 to 10 |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
@@ -48,14 +50,17 @@ Table: `vocabulary_progress`
 | entry_id | bigint / int FK | associated entry |
 | direction | varchar(32) | source_to_target or target_to_source |
 | box | int | current review box; default 1 |
-| next_review_at | datetime nullable | used for due review scheduling |
+| answered | int | counter of amount the pair has been answered |
+| answered_correctly | int | counter of amount the pair has been correctly answered |
 | last_answered_at | datetime nullable | most recent answer timestamp |
+| next_ask_at | datetime nullable | next test planned at |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
 Constraints:
 - unique on (`user_id`, `entry_id`, `direction`)
 - `box` should always be within the valid range for the user's configured box count
+- on entry delete, related progress-entries are deleted as part of cleanup or migration logic
 
 ## 4. User preference
 
@@ -64,19 +69,16 @@ Table: `vocabulary_user_settings` (recommended)
 | Field | Type | Notes |
 | --- | --- | --- |
 | user_id | varchar(255) PK | Nextcloud user |
-| box_count | int | default 5, allowed range 2 to 10 |
-| study_mode | varchar(32) nullable | default practice preference |
+| start_with_new | bool | start with new pairs before repeting old ones |
+| include_final_box | bool | keep asking paris in final box |
+| return_by_mistake | bool | handling of mistakes (return one box or direct to box 1) |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
-This avoids duplicating the box count on every progress row.
-
 ## 5. Notes on language handling
 
-The interface language remains English/German. The collection vocabulary language pair is independent and stored as a BCP 47 tag. Example values:
+The collection vocabulary language pair is independent and stored as a BCP 47 tag. Example values:
 
 - `en`, `de`
-- `fr`, `es`, `pt-BR`
+- `fr`, `es`
 - `zh-Hans`, `ja`
-
-Do not restrict `source_language` or `target_language` to `en` and `de` in the schema.

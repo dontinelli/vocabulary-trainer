@@ -1,6 +1,6 @@
 # Vocabulary Trainer
 
-Application to learn vocabulary. The first release is planned to have an English and German interface. Vocabulary languages are selected by users when creating a collection; they are not restricted to English and German.
+Application to learn vocabulary.
 
 ## Local development
 

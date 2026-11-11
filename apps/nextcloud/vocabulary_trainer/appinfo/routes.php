@@ -2,7 +2,7 @@
 
 return [
     'routes' => [
-        ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-        ['name' => 'page#status', 'url' => '/status', 'verb' => 'GET'],
+        ['name' => 'page#index', 'url' => '/', 'voc' => 'GET'],
+        ['name' => 'page#status', 'url' => '/status', 'voc' => 'GET'],
     ],
 ];

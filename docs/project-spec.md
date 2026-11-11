@@ -9,7 +9,6 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
 - UI language: English and German
 - Vocabulary languages: user-defined per collection
 - storage format for vocabulary languages: BCP 47 tags such as `en`, `de`, `fr`, `es`, `ja`, `zh-Hans`, etc.
-- source and target language should be allowed to differ and should not be restricted to English/German
 
 ## Functional requirements
 
@@ -37,11 +36,13 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
    - wrong answer: reset to box 1
    - default box count: 5
    - box count should be user-configurable
+   - dashboard with progress and statistics
 
 5. Privacy and ownership
    - collections are private by default
    - every collection operation is scoped to the current authenticated user
    - no collection is readable or editable by another user unless explicit shared access is added later
+   - import/export of collections and/or sharing of collections within Nextcloud may be added later
 
 ## Non-functional requirements
 

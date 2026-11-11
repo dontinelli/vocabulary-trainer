@@ -1,6 +1,6 @@
 # Architecture draft
 
-This document is a starting design for the Nextcloud-first MVP, informed by the [Nextcloud developer documentation](https://nextcloud.com/developer/). Confirm the minimum supported Nextcloud server version before implementation; supported PHP versions and available APIs depend on that choice.
+This document is a starting design for the Nextcloud-first MVP, informed by the [Nextcloud developer documentation](https://nextcloud.com/developer/). The current development is based on Nextcloud 35. Support for upcoming versions and possible backward compatibility may be tested/added once a running prototype is available.
 
 ## Proposed repository layout
 
@@ -28,7 +28,8 @@ apps/
 
 docs/
 ├── architecture.md
-└── database-schema.md
+├── database-schema.md
+└── project-spec.md
 ```
 
 Keep the Nextcloud app self-contained under its app directory. The Android app should be a separate client of a versioned API rather than sharing server implementation code.
@@ -55,17 +56,16 @@ Study-answer handling should be server-side: validate ownership, compare answers
 
 ## Collection languages
 
-The UI is initially localized in English and German, but these are not restrictions on vocabulary content. On collection creation, the user selects a source and target language from the app's language chooser. Store language identifiers using BCP 47 language tags (for example `en`, `de`, `fr`, `zh-Hans`, or `pt-BR`); do not hard-code a database constraint limiting collections to `en` and `de`. The language chooser can initially use a bundled curated list and be extended independently of interface translations. Validate identifiers and require source and target to differ.
+The UI is initially localized in English and German, but these are not restrictions on vocabulary content. On collection creation, the user selects a source and target language from the app's language chooser. Store language identifiers using BCP 47 language tags (for example `en`, `de`, `fr`, `zh-Hans`, or `pt-BR`). The language selector should support with autofill (e.g. based on a curated list) but the input should not be restricted, so as to allow also other learning tasks (e.g. declination, conjugation). Require source and target to differ.
 
 ## Learning model
 
-Track progress per user, entry, and translation direction. The default is five boxes; store each user's configured box count as a validated user preference (initially 2–10, default 5), not as a global app setting. New progress begins in box 1. A correct answer advances at most one box; an incorrect answer resets to box 1. The scheduler should use the current configured box count when choosing due work, so changing the setting does not require migrating progress rows.
+Track progress per user, entry, and translation direction. The default is five boxes; store each user's configured box count as a validated user preference (initially 2–10, default 5), not as a global app setting. New progress begins in box 1. A correct answer advances at most one box; an incorrect answer resets to box 1 (or one box lower). The scheduler should use the current configured box count when choosing due work, so changing the setting does not require migrating progress rows.
 
 A first scheduling policy can assign increasing review intervals to higher boxes. Keep that mapping in application code initially; it can become a user preference later if user testing shows a need. Progress rows store the next due time so the scheduler can evolve without changing the meaning of box placement.
 
 ## Open decisions before implementation
 
-- Minimum and maximum supported Nextcloud server versions.
 - The scope and source of the initial bundled language chooser list, and whether users can enter a language tag not in that list.
 - Whether one word pair is strictly one-to-one in the MVP or whether entries need multiple accepted translations immediately.
 - Answer normalization rules (case, whitespace, punctuation, and accepted alternatives).

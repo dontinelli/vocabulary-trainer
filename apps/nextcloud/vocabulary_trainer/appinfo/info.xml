@@ -11,9 +11,17 @@
   <author>dontinelli</author>
   <namespace>VocabularyTrainer</namespace>
   <category>tools</category>
+  <navigation>
+    <name>Vocabulary Trainer</name>
+    <route>voc.page.index</route>
+    <order>0</order>
+</navigation>
   <website>https://github.com/dontinelli/vocabulary-trainer</website>
   <bugs>https://github.com/dontinelli/vocabulary-trainer/issues</bugs>
+  <documentation>
+    <user>https://github.com/dontinelli/vocabulary-trainer/apps/nextcloud/vocabulary_trainer/README.md</user>
+  </documentation>
   <dependencies>
-    <nextcloud min-version="28" max-version="31"/>
+    <nextcloud min-version="35" max-version="35"/>
   </dependencies>
 </info>
