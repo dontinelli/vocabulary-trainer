@@ -19,7 +19,13 @@ Copy `.env.example` to `.env` before starting. The values in that file are for l
 3. Run **Dev Containers: Reopen in Container** from the Command Palette.
 4. Open [http://localhost:8080](http://localhost:8080) and complete the initial Nextcloud setup using the local credentials in `.env`.
 
-The dev container provides PHP, Composer, and Node.js. Docker Compose starts Nextcloud and MariaDB. The app work directory, `apps/nextcloud/vocabulary_trainer`, is mounted into Nextcloud's `custom_apps` directory. It is currently only a placeholder; Nextcloud will not list or enable it until a valid app skeleton (including `appinfo/info.xml`) is added.
+The dev container provides PHP, Composer, and Node.js. Docker Compose starts Nextcloud and MariaDB. The app work directory, `apps/nextcloud/vocabulary_trainer`, is mounted into Nextcloud's `custom_apps` directory. After completing Nextcloud's initial setup, enable the app from the repository root:
+
+```sh
+docker compose exec -u www-data nextcloud php occ app:enable vocabulary_trainer
+```
+
+The app appears in the Nextcloud navigation menu. Its collection interface saves each user's collections in the Nextcloud database; collection entries and study functionality are still under development.
 
 ### Start without the Dev Container
 

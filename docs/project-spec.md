@@ -35,7 +35,7 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
    - correct answer: move one box up
    - wrong answer: reset to box 1
    - default box count: 5
-   - box count should be user-configurable
+   - box count should be configurable per collection
    - dashboard with progress and statistics
 
 5. Privacy and ownership
