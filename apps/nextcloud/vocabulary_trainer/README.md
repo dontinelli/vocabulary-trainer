@@ -67,6 +67,16 @@ Collections are persistent. Entry management, study sessions, and progress track
 
 The layout uses Nextcloud theme variables, keyboard-operable controls, accessible dialogs, and translated interface text.
 
+## Tests
+
+Run the dependency-free collection service tests from the repository root:
+
+```sh
+php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php
+```
+
+They exercise collection validation, returned data mapping, writes, owner-scoped queries, session authentication, and controller response codes using lightweight Nextcloud/database test doubles.
+
 ## Data removal
 
 Nextcloud removes an app's files when it is removed, but it does not automatically drop app-owned database tables. In Nextcloud 35, registered uninstall repair steps also run when an app is disabled, so they cannot safely be used to delete user data only on permanent removal. To preserve data when the app is temporarily disabled, this app does not register a destructive uninstall step. Removing the app therefore leaves its database tables in place until a safe uninstall-only cleanup mechanism is available.
