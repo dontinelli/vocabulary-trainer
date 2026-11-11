@@ -84,6 +84,7 @@ namespace OCA\VocabularyTrainer\Tests {
 
     require_once __DIR__ . '/../lib/Service/CollectionService.php';
     require_once __DIR__ . '/../lib/Controller/CollectionController.php';
+    require_once __DIR__ . '/../lib/Controller/EntryController.php';
 
     final class FakeResult {
         public function __construct(private array $rows = [], private mixed $firstValue = false) {
@@ -95,6 +96,10 @@ namespace OCA\VocabularyTrainer\Tests {
 
         public function fetchOne(): mixed {
             return $this->firstValue;
+        }
+
+        public function fetchFirstColumn(): array {
+            return array_map(static fn (array $row): mixed => array_values($row)[0] ?? null, $this->rows);
         }
     }
 
@@ -120,7 +125,7 @@ namespace OCA\VocabularyTrainer\Tests {
             return new FakeExpressionBuilder();
         }
 
-        public function createNamedParameter(mixed $value): string {
+        public function createNamedParameter(mixed $value, ?int $type = null): string {
             $name = ':param' . $this->parameterId++;
             $this->parameters[$name] = $value;
             return $name;
@@ -256,6 +261,15 @@ namespace OCA\VocabularyTrainer\Tests {
         throw new RuntimeException($message);
     }
 
+    function assertInvalidEntry(CollectionService $service, array $data, string $message): void {
+        try {
+            $service->createEntry('alice', 7, $data);
+        } catch (InvalidArgumentException) {
+            return;
+        }
+        throw new RuntimeException($message);
+    }
+
     $passed = 0;
     $test = static function (string $name, callable $case) use (&$passed): void {
         $case();
@@ -375,6 +389,136 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue('alice', $builder->parameters[':param1'], 'Delete must bind the owner ID.');
     });
 
+    $test('lists normalized entries only for a collection owned by the user', static function (): void {
+        $db = new FakeDatabase();
+        $ownerCheck = new FakeQueryBuilder();
+        $ownerCheck->firstValue = 7;
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = [[
+            'id' => '18',
+            'source_term' => 'bonjour',
+            'target_term' => 'hallo',
+            'notes' => null,
+        ]];
+        $db->nextBuilders = [$ownerCheck, $entryQuery];
+        $service = new CollectionService($db);
+
+        assertSameValue([[
+            'id' => 18,
+            'sourceTerm' => 'bonjour',
+            'targetTerm' => 'hallo',
+            'notes' => null,
+        ]], $service->getEntries('alice', 7), 'Entry results should match the frontend shape.');
+        assertSameValue(7, $ownerCheck->parameters[':param0'], 'Ownership check must bind collection ID.');
+        assertSameValue('alice', $ownerCheck->parameters[':param1'], 'Ownership check must bind the session user.');
+        assertSameValue(7, $entryQuery->parameters[':param0'], 'Entry listing must be scoped to its collection.');
+    });
+
+    $test('does not expose entries from a collection the user does not own', static function (): void {
+        $db = new FakeDatabase();
+        $ownerCheck = new FakeQueryBuilder();
+        $ownerCheck->firstValue = false;
+        $db->nextBuilders[] = $ownerCheck;
+
+        assertSameValue(null, (new CollectionService($db))->getEntries('alice', 7), 'Other users collection must be hidden.');
+        assertSameValue(1, count($db->builders), 'No entry query should run after failed ownership verification.');
+    });
+
+    $test('creates an entry only after verifying ownership and normalizes its content', static function (): void {
+        $db = new FakeDatabase();
+        $ownerCheck = new FakeQueryBuilder();
+        $ownerCheck->firstValue = 7;
+        $insert = new FakeQueryBuilder();
+        $db->nextBuilders = [$ownerCheck, $insert];
+        $service = new CollectionService($db);
+
+        assertTrue($service->createEntry('alice', 7, [
+            'sourceTerm' => '  hello ',
+            'targetTerm' => ' hallo  ',
+            'notes' => '  greeting ',
+        ]), 'Valid entries should be created.');
+        assertTrue(in_array(['insert', 'vocabulary_entries'], $insert->operations, true), 'Create must write entries.');
+        assertSameValue(7, $insert->parameters[':param0'], 'Entry must be attached to the supplied collection.');
+        assertSameValue('hello', $insert->parameters[':param1'], 'Source terms should be trimmed.');
+        assertSameValue('hallo', $insert->parameters[':param2'], 'Target terms should be trimmed.');
+        assertSameValue('greeting', $insert->parameters[':param3'], 'Notes should be trimmed.');
+        assertTrue(isset($insert->parameters[':param4'], $insert->parameters[':param5']), 'Entry timestamps must be set.');
+    });
+
+    $test('updates an entry only within the selected collection', static function (): void {
+        $db = new FakeDatabase();
+        $ownerCheck = new FakeQueryBuilder();
+        $ownerCheck->firstValue = 7;
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$ownerCheck, $update];
+
+        assertTrue((new CollectionService($db))->updateEntry('alice', 7, 18, [
+            'sourceTerm' => 'hello',
+            'targetTerm' => 'hallo',
+            'notes' => '',
+        ]), 'An updated entry should return true.');
+        assertTrue(in_array(['where', 'id = :param4'], $update->operations, true), 'Update must constrain the entry ID.');
+        assertTrue(in_array(['andWhere', 'collection_id = :param5'], $update->operations, true), 'Update must constrain the collection ID.');
+        assertSameValue(18, $update->parameters[':param4'], 'Update must bind the entry ID.');
+        assertSameValue(7, $update->parameters[':param5'], 'Update must bind the collection ID.');
+    });
+
+    $test('bulk deletes only entries verified in the owned collection', static function (): void {
+        $db = new FakeDatabase();
+        $ownerCheck = new FakeQueryBuilder();
+        $ownerCheck->firstValue = 7;
+        $entryCheck = new FakeQueryBuilder();
+        $entryCheck->rows = [['id' => '18'], ['id' => '19']];
+        $delete = new FakeQueryBuilder();
+        $db->nextBuilders = [$ownerCheck, $entryCheck, $delete];
+
+        assertSameValue(1, (new CollectionService($db))->deleteEntries('alice', 7, [18, 19]), 'Bulk deletion should return the affected count.');
+        assertTrue(in_array(['delete', 'vocabulary_entries'], $delete->operations, true), 'Bulk delete must target entries.');
+        assertTrue(in_array(['where', 'collection_id = :param0'], $delete->operations, true), 'Bulk delete must constrain the collection.');
+        assertTrue(in_array(['andWhere', 'id IN :param1'], $delete->operations, true), 'Bulk delete must constrain selected IDs.');
+        assertSameValue([18, 19], $delete->parameters[':param1'], 'Bulk delete IDs must be bound as a list.');
+    });
+
+    $test('moves verified entries between collections owned by the user', static function (): void {
+        $db = new FakeDatabase();
+        $sourceOwnerCheck = new FakeQueryBuilder();
+        $sourceOwnerCheck->firstValue = 7;
+        $targetOwnerCheck = new FakeQueryBuilder();
+        $targetOwnerCheck->firstValue = 8;
+        $entryCheck = new FakeQueryBuilder();
+        $entryCheck->rows = [['id' => '18']];
+        $move = new FakeQueryBuilder();
+        $db->nextBuilders = [$sourceOwnerCheck, $targetOwnerCheck, $entryCheck, $move];
+
+        assertSameValue(1, (new CollectionService($db))->moveEntries('alice', 7, 8, [18]), 'Move should return affected row count.');
+        assertTrue(in_array(['update', 'vocabulary_entries'], $move->operations, true), 'Move must update entries.');
+        assertTrue(in_array(['set', 'collection_id', ':param0'], $move->operations, true), 'Move must set destination collection.');
+        assertSameValue(8, $move->parameters[':param0'], 'Destination collection must be parameterized.');
+        assertTrue(in_array(['where', 'collection_id = :param2'], $move->operations, true), 'Move must constrain the source collection.');
+        assertTrue(in_array(['andWhere', 'id IN :param3'], $move->operations, true), 'Move must constrain selected IDs.');
+    });
+
+    $test('rejects invalid entry data and bulk IDs before database access', static function (): void {
+        foreach ([
+            [['sourceTerm' => ' ', 'targetTerm' => 'hello'], 'blank source term'],
+            [['sourceTerm' => 'hello', 'targetTerm' => ' '], 'blank target term'],
+            [['sourceTerm' => str_repeat('a', 65536), 'targetTerm' => 'hello'], 'long source term'],
+        ] as [$data, $case]) {
+            $db = new FakeDatabase();
+            assertInvalidEntry(new CollectionService($db), $data, "Expected {$case} to be rejected.");
+            assertSameValue([], $db->builders, "Invalid {$case} must not reach the database.");
+        }
+
+        $db = new FakeDatabase();
+        try {
+            (new CollectionService($db))->deleteEntries('alice', 7, [1, 1]);
+        } catch (InvalidArgumentException) {
+            assertSameValue([], $db->builders, 'Invalid IDs must be rejected before database access.');
+            return;
+        }
+        throw new RuntimeException('Duplicate entry IDs should be rejected.');
+    });
+
     $test('rejects invalid collection data before database access', static function (): void {
         $invalidCollections = [
             [['name' => ' ', 'sourceLanguage' => 'en', 'targetLanguage' => 'de', 'boxCount' => 5], 'blank name'],
@@ -444,5 +588,5 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue([], $db->builders, 'Invalid requests must not access the database.');
     });
 
-    echo "{$passed} collection API tests passed.\n";
+    echo "{$passed} collection and word-pair API tests passed.\n";
 }

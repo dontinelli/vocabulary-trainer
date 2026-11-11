@@ -115,6 +115,193 @@ class CollectionService {
         return $affectedRows > 0;
     }
 
+    public function getEntries(string $userId, int $collectionId): ?array {
+        if (!$this->ownsCollection($userId, $collectionId)) {
+            return null;
+        }
+
+        $query = $this->db->getQueryBuilder();
+        $rows = $query
+            ->select('id', 'source_term', 'target_term', 'notes')
+            ->from('vocabulary_entries')
+            ->where($query->expr()->eq('collection_id', $query->createNamedParameter($collectionId)))
+            ->orderBy('source_term', 'ASC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_map(static fn (array $row): array => [
+            'id' => (int)$row['id'],
+            'sourceTerm' => $row['source_term'],
+            'targetTerm' => $row['target_term'],
+            'notes' => $row['notes'],
+        ], $rows);
+    }
+
+    public function createEntry(string $userId, int $collectionId, array $data): bool {
+        $entry = $this->validateEntry($data);
+        if (!$this->ownsCollection($userId, $collectionId)) {
+            return false;
+        }
+
+        $now = gmdate('Y-m-d H:i:s');
+        $query = $this->db->getQueryBuilder();
+        $query->insert('vocabulary_entries')
+            ->values([
+                'collection_id' => $query->createNamedParameter($collectionId),
+                'source_term' => $query->createNamedParameter($entry['sourceTerm']),
+                'target_term' => $query->createNamedParameter($entry['targetTerm']),
+                'notes' => $query->createNamedParameter($entry['notes']),
+                'created_at' => $query->createNamedParameter($now),
+                'updated_at' => $query->createNamedParameter($now),
+            ])
+            ->executeStatement();
+
+        return true;
+    }
+
+    public function updateEntry(string $userId, int $collectionId, int $entryId, array $data): bool {
+        $entry = $this->validateEntry($data);
+        if (!$this->ownsCollection($userId, $collectionId)) {
+            return false;
+        }
+
+        $query = $this->db->getQueryBuilder();
+        $affectedRows = $query->update('vocabulary_entries')
+            ->set('source_term', $query->createNamedParameter($entry['sourceTerm']))
+            ->set('target_term', $query->createNamedParameter($entry['targetTerm']))
+            ->set('notes', $query->createNamedParameter($entry['notes']))
+            ->set('updated_at', $query->createNamedParameter(gmdate('Y-m-d H:i:s')))
+            ->where($query->expr()->eq('id', $query->createNamedParameter($entryId)))
+            ->andWhere($query->expr()->eq('collection_id', $query->createNamedParameter($collectionId)))
+            ->executeStatement();
+        if ($affectedRows > 0) {
+            return true;
+        }
+
+        $check = $this->db->getQueryBuilder();
+        return $check->select('id')
+            ->from('vocabulary_entries')
+            ->where($check->expr()->eq('id', $check->createNamedParameter($entryId)))
+            ->andWhere($check->expr()->eq('collection_id', $check->createNamedParameter($collectionId)))
+            ->executeQuery()
+            ->fetchOne() !== false;
+    }
+
+    public function deleteEntries(string $userId, int $collectionId, array $entryIds): ?int {
+        $entryIds = $this->validateEntryIds($entryIds);
+        if (!$this->ownsCollection($userId, $collectionId)) {
+            return null;
+        }
+        $this->assertEntriesBelongToCollection($collectionId, $entryIds);
+
+        $query = $this->db->getQueryBuilder();
+        return $query->delete('vocabulary_entries')
+            ->where($query->expr()->eq('collection_id', $query->createNamedParameter($collectionId)))
+            ->andWhere($query->expr()->in(
+                'id',
+                $query->createNamedParameter($entryIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeStatement();
+    }
+
+    public function deleteEntry(string $userId, int $collectionId, int $entryId): bool {
+        return $this->deleteEntries($userId, $collectionId, [$entryId]) === 1;
+    }
+
+    public function moveEntries(string $userId, int $sourceCollectionId, int $targetCollectionId, array $entryIds): ?int {
+        $entryIds = $this->validateEntryIds($entryIds);
+        if ($sourceCollectionId === $targetCollectionId) {
+            throw new InvalidArgumentException('Choose a different destination collection.');
+        }
+        if (!$this->ownsCollection($userId, $sourceCollectionId) || !$this->ownsCollection($userId, $targetCollectionId)) {
+            return null;
+        }
+        $this->assertEntriesBelongToCollection($sourceCollectionId, $entryIds);
+
+        $query = $this->db->getQueryBuilder();
+        return $query->update('vocabulary_entries')
+            ->set('collection_id', $query->createNamedParameter($targetCollectionId))
+            ->set('updated_at', $query->createNamedParameter(gmdate('Y-m-d H:i:s')))
+            ->where($query->expr()->eq('collection_id', $query->createNamedParameter($sourceCollectionId)))
+            ->andWhere($query->expr()->in(
+                'id',
+                $query->createNamedParameter($entryIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeStatement();
+    }
+
+    private function ownsCollection(string $userId, int $collectionId): bool {
+        $query = $this->db->getQueryBuilder();
+        return $query->select('id')
+            ->from('vocabulary_collections')
+            ->where($query->expr()->eq('id', $query->createNamedParameter($collectionId)))
+            ->andWhere($query->expr()->eq('user_id', $query->createNamedParameter($userId)))
+            ->executeQuery()
+            ->fetchOne() !== false;
+    }
+
+    private function assertEntriesBelongToCollection(int $collectionId, array $entryIds): void {
+        $query = $this->db->getQueryBuilder();
+        $foundIds = $query->select('id')
+            ->from('vocabulary_entries')
+            ->where($query->expr()->eq('collection_id', $query->createNamedParameter($collectionId)))
+            ->andWhere($query->expr()->in(
+                'id',
+                $query->createNamedParameter($entryIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        if (count($foundIds) !== count($entryIds)) {
+            throw new InvalidArgumentException('One or more selected entries are no longer in this collection.');
+        }
+    }
+
+    private function validateEntry(array $data): array {
+        $sourceTerm = $data['sourceTerm'] ?? null;
+        $targetTerm = $data['targetTerm'] ?? null;
+        $notes = $data['notes'] ?? '';
+
+        if (!is_string($sourceTerm) || trim($sourceTerm) === '' || strlen(trim($sourceTerm)) > 65535) {
+            throw new InvalidArgumentException('Enter a source term of up to 65,535 bytes.');
+        }
+        if (!is_string($targetTerm) || trim($targetTerm) === '' || strlen(trim($targetTerm)) > 65535) {
+            throw new InvalidArgumentException('Enter a target term of up to 65,535 bytes.');
+        }
+        if (!is_string($notes) || strlen(trim($notes)) > 65535) {
+            throw new InvalidArgumentException('Notes must be text of up to 65,535 bytes.');
+        }
+
+        return [
+            'sourceTerm' => trim($sourceTerm),
+            'targetTerm' => trim($targetTerm),
+            'notes' => trim($notes) === '' ? null : trim($notes),
+        ];
+    }
+
+    private function validateEntryIds(array $entryIds): array {
+        if ($entryIds === [] || count($entryIds) > 500) {
+            throw new InvalidArgumentException('Select between 1 and 500 entries.');
+        }
+
+        $normalized = [];
+        foreach ($entryIds as $entryId) {
+            $id = is_int($entryId) || is_string($entryId)
+                ? filter_var($entryId, FILTER_VALIDATE_INT)
+                : false;
+            if ($id === false || $id < 1) {
+                throw new InvalidArgumentException('The selected entry IDs are invalid.');
+            }
+            $normalized[] = $id;
+        }
+
+        $normalized = array_values(array_unique($normalized));
+        if (count($normalized) !== count($entryIds)) {
+            throw new InvalidArgumentException('The selected entries must be unique.');
+        }
+        return $normalized;
+    }
+
     private function validateCollection(array $data): array {
         $name = $data['name'] ?? null;
         $sourceLanguage = $data['sourceLanguage'] ?? null;

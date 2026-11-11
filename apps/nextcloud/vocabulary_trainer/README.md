@@ -63,19 +63,34 @@ The collection interface uses authenticated Nextcloud app routes and persists ch
 
 Collection writes require Nextcloud's request-token/CSRF protection. The owner ID comes from the signed-in session and is never accepted from request data. Create and update validate collection names, language tags, distinct source and target languages, and the 2–10 study-box range. Records belonging to other users are not returned or modifiable through these routes.
 
-Collections are persistent. Entry management, study sessions, and progress tracking remain future work; the current dashboard statistics are still placeholders.
+## Word-pair API
+
+Open a collection in the app to view and manage its word pairs. Each pair has a required source term and translation, plus optional notes. The app supports adding and editing pairs, selecting multiple pairs, moving them to another collection, and deleting selected pairs.
+
+| Method | Route | Action |
+| --- | --- | --- |
+| GET | `/apps/vocabulary_trainer/collections/{collectionId}/entries` | List a collection's word pairs |
+| POST | `/apps/vocabulary_trainer/collections/{collectionId}/entries` | Create a word pair |
+| PUT | `/apps/vocabulary_trainer/collections/{collectionId}/entries/{entryId}` | Update a word pair |
+| DELETE | `/apps/vocabulary_trainer/collections/{collectionId}/entries/{entryId}` | Delete one word pair |
+| DELETE | `/apps/vocabulary_trainer/collections/{collectionId}/entries` | Delete selected word pairs (`entryIds` is a JSON-encoded list) |
+| POST | `/apps/vocabulary_trainer/collections/{collectionId}/entries/move` | Move selected word pairs (`entryIds` is a JSON-encoded list; `targetCollectionId` is the destination) |
+
+Entry operations verify ownership of the source collection and, for moves, the destination collection. Bulk operations accept 1–500 unique entry IDs and verify that every selected pair belongs to the source collection before changing data.
+
+The current dashboard statistics are still placeholders; study sessions and progress tracking remain future work.
 
 The layout uses Nextcloud theme variables, keyboard-operable controls, accessible dialogs, and translated interface text.
 
 ## Tests
 
-Run the dependency-free collection service tests from the repository root:
+Run the dependency-free collection and word-pair service tests from the repository root:
 
 ```sh
 php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php
 ```
 
-They exercise collection validation, returned data mapping, writes, owner-scoped queries, session authentication, and controller response codes using lightweight Nextcloud/database test doubles.
+They exercise collection and word-pair validation, returned data mapping, writes, owner-scoped queries, session authentication, and controller response codes using lightweight Nextcloud/database test doubles.
 
 ## Data removal
 
