@@ -34,15 +34,31 @@
             options.body = new URLSearchParams(data).toString();
         }
 
-        const response = await fetch(`${collectionsUrl}${path}`, options);
+        let response;
+        try {
+            response = await fetch(`${collectionsUrl}${path}`, options);
+        } catch {
+            throw new Error(strings.networkError);
+        }
+
+        const responseText = await response.text();
         let result;
         try {
-            result = await response.json();
+            result = JSON.parse(responseText);
         } catch {
-            throw new Error(strings.requestFailed);
+            result = null;
         }
         if (!response.ok) {
-            throw new Error(result.error || strings.requestFailed);
+            if (typeof result?.error === 'string') {
+                throw new Error(result.error);
+            }
+            if (response.status === 404) {
+                throw new Error(strings.apiNotFound.replace('{status}', response.status));
+            }
+            throw new Error(strings.httpError.replace('{status}', response.status));
+        }
+        if (result === null) {
+            throw new Error(strings.invalidResponse.replace('{status}', response.status));
         }
         return result;
     }
@@ -50,6 +66,9 @@
     async function loadCollections() {
         try {
             const result = await request('', 'GET');
+            if (!Array.isArray(result)) {
+                throw new Error(strings.invalidResponse.replace('{status}', 200));
+            }
             collections.splice(0, collections.length, ...result);
             collectionsLoadFailed = false;
             loadError.hidden = true;
@@ -61,7 +80,6 @@
             loadError.textContent = error.message;
             loadError.hidden = false;
             collectionsLoaded = true;
-            announce(error.message);
             render();
             return false;
         }
@@ -131,13 +149,20 @@
 
     document.getElementById('add-collection').addEventListener('click', () => openEditor(null));
 
-    root.addEventListener('click', (event) => {
-        const closeButton = event.target.closest('[data-close]');
-        if (closeButton) {
+    document.querySelectorAll('[data-close]').forEach((closeButton) => {
+        closeButton.addEventListener('click', () => {
             document.getElementById(closeButton.dataset.close).close();
-            return;
-        }
+        });
+    });
+    document.querySelectorAll('dialog').forEach((dialog) => {
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) {
+                dialog.close();
+            }
+        });
+    });
 
+    root.addEventListener('click', (event) => {
         const addButton = event.target.closest('[data-action="add"]');
         if (addButton) {
             openEditor(null);

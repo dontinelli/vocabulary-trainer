@@ -14,7 +14,10 @@ $strings = [
     'collectionCreated' => $l->t('Collection saved.'),
     'collectionUpdated' => $l->t('Collection updated.'),
     'collectionRemoved' => $l->t('Collection removed.'),
-    'requestFailed' => $l->t('The request failed. Please try again.'),
+    'networkError' => $l->t('Could not connect to Nextcloud. Check your connection and try again.'),
+    'apiNotFound' => $l->t('The collections API route was not found (HTTP {status}). Disable and re-enable the app to refresh its routes.'),
+    'httpError' => $l->t('The server returned an unexpected response (HTTP {status}). Check the Nextcloud log for details.'),
+    'invalidResponse' => $l->t('Nextcloud returned a response that was not valid JSON (HTTP {status}). Check the Nextcloud log for details.'),
 ];
 ?>
 
@@ -32,6 +35,8 @@ $strings = [
                     <?php p($l->t('Add collection')); ?>
                 </button>
             </header>
+
+            <p class="vt-error-alert" id="collection-load-error" role="alert" aria-live="assertive" hidden></p>
 
             <p class="vt-info-notice" role="status">
                 <?php p($l->t('Your collections are saved to your Nextcloud account.')); ?>
@@ -70,7 +75,6 @@ $strings = [
                         <p><?php p($l->t('Keep vocabulary organized by language pair.')); ?></p>
                     </div>
                 </div>
-                <p class="vt-form-error" id="collection-load-error" role="alert" hidden></p>
                 <div class="vt-collection-list" id="collection-list" aria-live="polite"></div>
                 <div class="vt-empty-state" id="collection-empty" hidden>
                     <span class="vt-empty-icon" aria-hidden="true">＋</span>
@@ -87,6 +91,7 @@ $strings = [
                     <h2 id="collection-dialog-title"><?php p($l->t('Add collection')); ?></h2>
                     <button class="vt-icon-button" type="button" data-close="collection-dialog" aria-label="<?php p($l->t('Close')); ?>">×</button>
                 </div>
+                <p class="vt-error-alert" id="collection-form-error" role="alert" aria-live="assertive" hidden></p>
                 <div class="vt-form-fields">
                     <label>
                         <span><?php p($l->t('Collection name')); ?></span>
@@ -108,7 +113,6 @@ $strings = [
                         <small><?php p($l->t('Choose between 2 and 10 boxes for this collection.')); ?></small>
                     </label>
                 </div>
-                <p class="vt-form-error" id="collection-form-error" role="alert" hidden></p>
                 <div class="vt-dialog-actions">
                     <button class="vt-button" type="button" data-close="collection-dialog"><?php p($l->t('Cancel')); ?></button>
                     <button class="vt-button vt-button--primary" type="submit"><?php p($l->t('Save collection')); ?></button>
@@ -121,8 +125,8 @@ $strings = [
                 <h2 id="remove-dialog-title"><?php p($l->t('Remove collection')); ?></h2>
                 <button class="vt-icon-button" type="button" data-close="remove-dialog" aria-label="<?php p($l->t('Close')); ?>">×</button>
             </div>
+            <p class="vt-error-alert" id="remove-error" role="alert" aria-live="assertive" hidden></p>
             <p id="remove-prompt"></p>
-            <p class="vt-form-error" id="remove-error" role="alert" hidden></p>
             <div class="vt-dialog-actions">
                 <button class="vt-button" type="button" data-close="remove-dialog"><?php p($l->t('Cancel')); ?></button>
                 <button class="vt-button vt-button--danger" id="confirm-remove" type="button"><?php p($l->t('Remove collection')); ?></button>
