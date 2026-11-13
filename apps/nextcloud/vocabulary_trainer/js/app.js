@@ -226,7 +226,6 @@
         entryEmpty.hidden = visibleEntries.length > 0;
         document.getElementById('entry-empty-message').textContent =
             entries.length === 0 ? strings.noEntries : strings.noPairsInBox;
-        document.getElementById('collection-entry-count').textContent = String(entries.length);
         const selectedCount = visibleEntries.filter((entry) => selectedEntryIds.has(entry.id)).length;
         document.getElementById('selected-count').textContent =
             strings.selectedCount.replace('{count}', selectedCount);
@@ -348,7 +347,6 @@
         document.getElementById('detail-heading').textContent = collection.name;
         document.getElementById('detail-languages').textContent =
             `${collection.sourceLanguage.toUpperCase()} → ${collection.targetLanguage.toUpperCase()}`;
-        document.getElementById('collection-entry-count').textContent = String(collection.entryCount);
         document.getElementById('collection-box-count').textContent = String(collection.boxCount);
         overview.hidden = true;
         detail.hidden = false;
