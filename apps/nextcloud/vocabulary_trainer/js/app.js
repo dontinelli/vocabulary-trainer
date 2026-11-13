@@ -92,7 +92,9 @@
                 throw new Error(result.error);
             }
             if (response.status === 404) {
-                throw new Error(strings.apiNotFound.replace('{status}', response.status));
+                throw new Error(strings.apiNotFound
+                    .replace('{status}', response.status)
+                    .replace('{path}', path));
             }
             throw new Error(strings.httpError.replace('{status}', response.status));
         }

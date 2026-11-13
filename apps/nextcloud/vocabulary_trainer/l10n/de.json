@@ -26,7 +26,7 @@
     "Collection updated.": "Sammlung aktualisiert.",
     "Collection removed.": "Sammlung entfernt.",
     "Could not connect to Nextcloud. Check your connection and try again.": "Verbindung zu Nextcloud fehlgeschlagen. Bitte prüfe deine Verbindung und versuche es erneut.",
-    "The app API route was not found (HTTP {status}). Disable and re-enable the app to refresh its routes.": "Die App-API wurde nicht gefunden (HTTP {status}). Deaktiviere und aktiviere die App erneut, um ihre Routen zu aktualisieren.",
+    "The app API route was not found (HTTP {status}): {path}. Disable and re-enable the app to refresh its routes.": "Die App-API wurde nicht gefunden (HTTP {status}): {path}. Deaktiviere und aktiviere die App erneut, um ihre Routen zu aktualisieren.",
     "Open collection": "Sammlung öffnen",
     "Back to collections": "Zurück zu den Sammlungen",
     "Add word pair": "Wortpaar hinzufügen",
