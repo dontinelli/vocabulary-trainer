@@ -38,6 +38,20 @@ class EntryController extends Controller {
     }
 
     #[NoAdminRequired]
+    public function statistics(int $collectionId): DataResponse {
+        $userId = $this->getUserId();
+        if ($userId === null) {
+            return $this->unauthorized();
+        }
+
+        $statistics = $this->collectionService->getCollectionStatistics($userId, $collectionId);
+        if ($statistics === null) {
+            return $this->notFound('Collection not found.');
+        }
+        return new DataResponse($statistics);
+    }
+
+    #[NoAdminRequired]
     public function create(int $collectionId): DataResponse {
         $userId = $this->getUserId();
         if ($userId === null) {

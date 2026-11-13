@@ -97,6 +97,7 @@ Collection create/update validates names, language tags, distinct source and tar
 | Method | Route | Action |
 | --- | --- | --- |
 | GET | `/collections/{collectionId}/entries` | List a collection's word pairs |
+| GET | `/collections/{collectionId}/statistics` | Return per-direction box distributions and collection learning statistics |
 | POST | `/collections/{collectionId}/entries` | Create a word pair |
 | PUT | `/collections/{collectionId}/entries/{entryId}` | Update a word pair |
 | DELETE | `/collections/{collectionId}/entries/{entryId}` | Delete one word pair |
@@ -104,6 +105,8 @@ Collection create/update validates names, language tags, distinct source and tar
 | POST | `/collections/{collectionId}/entries/move` | Move selected word pairs; `entryIds` is a JSON-encoded list and `targetCollectionId` is the destination |
 
 Entry operations verify ownership of the source collection and, for moves, the destination collection. Bulk operations accept 1–500 unique IDs and verify that every selected pair belongs to the source collection before changing data.
+
+Collection statistics report answer accuracy across both directions and normalized average box advancement across every pair-direction (new progress is treated as box 1). Box distributions remain separate by translation direction because a pair can occupy different boxes in each direction.
 
 ### Learning
 

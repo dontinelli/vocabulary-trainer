@@ -14,7 +14,7 @@ Vocabulary Trainer helps you organize vocabulary in your Nextcloud account. Crea
 After each answer, the result stays visible for your chosen delay (five seconds by default) before the next question. Use the pin button to pause or resume either timer, or click the card outside its controls to move to the next step early.
 8. Edit individual pairs or select several to move them to another collection or delete them.
 
-Correct answers move a pair up one study box; incorrect answers return it to the first box. Reviews are scheduled at increasing intervals. The collection dashboard and learning statistics are still placeholders.
+Correct answers move a pair up one study box; incorrect answers return it to the first box. Reviews are scheduled at increasing intervals. Each collection dashboard shows its pair and box counts, answer accuracy across both translation directions, and normalized learning progress. The box distribution is split by direction; select a box to filter the displayed pairs.
 
 ## Your data and privacy
 

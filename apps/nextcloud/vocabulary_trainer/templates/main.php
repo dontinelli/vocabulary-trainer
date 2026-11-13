@@ -39,6 +39,8 @@ $strings = [
     'entryNameRequired' => $l->t('Enter both a word or phrase and its translation.'),
     'selectEntriesError' => $l->t('Select one or more word pairs.'),
     'noEntries' => $l->t('No word pairs yet. Add one to get started.'),
+    'noPairsInBox' => $l->t('No word pairs are in this box.'),
+    'allPairs' => $l->t('All word pairs'),
     'entriesLoadFailed' => $l->t('Could not load word pairs.'),
     'requestFailed' => $l->t('The request could not be completed.'),
     'startLearning' => $l->t('Start learning'),
@@ -167,7 +169,7 @@ $strings = [
                     <div class="vt-section-heading">
                         <div>
                             <h3 id="collection-dashboard-heading"><?php p($l->t('Collection overview')); ?></h3>
-                            <p><?php p($l->t('Collection statistics will appear here.')); ?></p>
+                            <p><?php p($l->t('Accuracy combines both translation directions. Learning progress averages box advancement across both directions.')); ?></p>
                         </div>
                     </div>
                     <div class="vt-collection-stats">
@@ -180,10 +182,15 @@ $strings = [
                             <strong id="collection-box-count">—</strong>
                         </div>
                         <div class="vt-stat-placeholder">
+                            <span><?php p($l->t('Correct answers')); ?></span>
+                            <strong id="collection-accuracy">—</strong>
+                        </div>
+                        <div class="vt-stat-placeholder">
                             <span><?php p($l->t('Learning progress')); ?></span>
-                            <strong>—</strong>
+                            <strong id="collection-learning-progress">—</strong>
                         </div>
                     </div>
+                    <div class="vt-box-distribution" id="box-distribution" aria-label="<?php p($l->t('Filter word pairs by study box and direction')); ?>"></div>
                 </section>
                 <p class="vt-error-alert" id="entry-load-error" role="alert" aria-live="assertive" hidden></p>
                 <div class="vt-bulk-toolbar" id="bulk-toolbar">
@@ -203,7 +210,7 @@ $strings = [
                 </div>
                 <ul class="vt-entry-list" id="entry-list" aria-live="polite"></ul>
                 <div class="vt-empty-state" id="entry-empty" hidden>
-                    <h3><?php p($l->t('No word pairs yet. Add one to get started.')); ?></h3>
+                    <h3 id="entry-empty-message"><?php p($l->t('No word pairs yet. Add one to get started.')); ?></h3>
                 </div>
             </section>
 

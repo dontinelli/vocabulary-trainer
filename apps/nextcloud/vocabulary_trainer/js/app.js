@@ -16,6 +16,8 @@
     let removingId = null;
     let activeCollection = null;
     let editingEntryId = null;
+    let collectionStatistics = null;
+    let entryFilter = null;
     const entries = [];
     const selectedEntryIds = new Set();
 
@@ -179,18 +181,23 @@
 
     function renderEntries() {
         entryList.replaceChildren();
-        entryEmpty.hidden = entries.length > 0;
+        const visibleEntries = entryFilter
+            ? entries.filter((entry) => entry.boxes[entryFilter.direction] === entryFilter.box)
+            : entries;
+        entryEmpty.hidden = visibleEntries.length > 0;
+        document.getElementById('entry-empty-message').textContent =
+            entries.length === 0 ? strings.noEntries : strings.noPairsInBox;
         document.getElementById('collection-entry-count').textContent = String(entries.length);
-        const selectedCount = selectedEntryIds.size;
+        const selectedCount = visibleEntries.filter((entry) => selectedEntryIds.has(entry.id)).length;
         document.getElementById('selected-count').textContent =
             strings.selectedCount.replace('{count}', selectedCount);
         document.getElementById('delete-selected').disabled = selectedCount === 0;
 
         const selectAll = document.getElementById('select-all-entries');
-        selectAll.checked = entries.length > 0 && selectedCount === entries.length;
-        selectAll.indeterminate = selectedCount > 0 && selectedCount < entries.length;
+        selectAll.checked = visibleEntries.length > 0 && selectedCount === visibleEntries.length;
+        selectAll.indeterminate = selectedCount > 0 && selectedCount < visibleEntries.length;
 
-        entries.forEach((entry) => {
+        visibleEntries.forEach((entry) => {
             const item = makeElement('li', 'vt-entry-item');
             const checkboxLabel = makeElement('label', 'vt-entry-select');
             const checkbox = document.createElement('input');
@@ -218,6 +225,59 @@
         renderMoveTargets();
     }
 
+    function renderCollectionStatistics() {
+        const distribution = document.getElementById('box-distribution');
+        distribution.replaceChildren();
+        if (!collectionStatistics) {
+            document.getElementById('collection-box-count').textContent = '—';
+            document.getElementById('collection-accuracy').textContent = '—';
+            document.getElementById('collection-learning-progress').textContent = '—';
+            return;
+        }
+
+        document.getElementById('collection-box-count').textContent = String(collectionStatistics.boxCount);
+        document.getElementById('collection-accuracy').textContent =
+            collectionStatistics.accuracyPercent === null
+                ? '—'
+                : `${Math.round(collectionStatistics.accuracyPercent)}%`;
+        document.getElementById('collection-learning-progress').textContent =
+            collectionStatistics.learningProgressPercent === null
+                ? '—'
+                : `${Math.round(collectionStatistics.learningProgressPercent)}%`;
+
+        const allPairs = makeElement('button', `vt-button${entryFilter ? '' : ' is-active'}`, strings.allPairs);
+        allPairs.type = 'button';
+        allPairs.dataset.action = 'filter-box';
+        allPairs.setAttribute('aria-pressed', String(entryFilter === null));
+        distribution.append(allPairs);
+
+        [
+            ['source_to_target', strings.sourceToTarget],
+            ['target_to_source', strings.targetToSource],
+        ].forEach(([direction, label]) => {
+            const group = makeElement('div', 'vt-box-distribution-group');
+            group.append(makeElement('h4', '', label));
+            const buttons = makeElement('div', 'vt-box-distribution-buttons');
+            collectionStatistics.boxCounts[direction].forEach((count, index) => {
+                const box = index + 1;
+                const isActive = entryFilter?.direction === direction && entryFilter.box === box;
+                const button = makeElement(
+                    'button',
+                    `vt-button${isActive ? ' is-active' : ''}`,
+                    `${strings.boxNumber} ${box} (${count})`,
+                );
+                button.type = 'button';
+                button.dataset.action = 'filter-box';
+                button.dataset.direction = direction;
+                button.dataset.box = String(box);
+                button.setAttribute('aria-pressed', String(isActive));
+                buttons.append(button);
+            });
+            group.append(buttons);
+            distribution.append(group);
+        });
+    }
+
     function renderMoveTargets() {
         targetCollection.replaceChildren();
         const placeholder = document.createElement('option');
@@ -240,6 +300,9 @@
     async function openCollection(collection) {
         activeCollection = collection;
         selectedEntryIds.clear();
+        entryFilter = null;
+        collectionStatistics = null;
+        renderCollectionStatistics();
         studyView.hidden = true;
         detail.hidden = false;
         document.getElementById('detail-heading').textContent = collection.name;
@@ -572,12 +635,24 @@
             return false;
         }
         try {
-            const result = await request(`/${encodeURIComponent(activeCollection.id)}/entries`, 'GET');
-            if (!Array.isArray(result)) {
+            const collectionPath = `/${encodeURIComponent(activeCollection.id)}`;
+            const [result, statistics] = await Promise.all([
+                request(`${collectionPath}/entries`, 'GET'),
+                request(`${collectionPath}/statistics`, 'GET'),
+            ]);
+            if (!Array.isArray(result) || !statistics || typeof statistics !== 'object') {
                 throw new Error(strings.invalidResponse.replace('{status}', 200));
             }
-            entries.splice(0, entries.length, ...result);
+            collectionStatistics = statistics;
+            entries.splice(0, entries.length, ...result.map((entry) => ({
+                ...entry,
+                boxes: statistics.entryProgress[String(entry.id)] || {
+                    source_to_target: 1,
+                    target_to_source: 1,
+                },
+            })));
             selectedEntryIds.clear();
+            renderCollectionStatistics();
             entryLoadError.hidden = true;
             renderEntries();
             return true;
@@ -585,6 +660,8 @@
             entryLoadError.textContent = `${strings.entriesLoadFailed} ${error.message}`;
             entryLoadError.hidden = false;
             entries.splice(0);
+            collectionStatistics = null;
+            renderCollectionStatistics();
             renderEntries();
             return false;
         }
@@ -814,8 +891,24 @@
     document.getElementById('select-all-entries').addEventListener('change', (event) => {
         selectedEntryIds.clear();
         if (event.target.checked) {
-            entries.forEach((entry) => selectedEntryIds.add(entry.id));
+            const visibleEntries = entryFilter
+                ? entries.filter((entry) => entry.boxes[entryFilter.direction] === entryFilter.box)
+                : entries;
+            visibleEntries.forEach((entry) => selectedEntryIds.add(entry.id));
         }
+        renderEntries();
+    });
+
+    document.getElementById('box-distribution').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action="filter-box"]');
+        if (!button) {
+            return;
+        }
+        entryFilter = button.dataset.direction && button.dataset.box
+            ? { direction: button.dataset.direction, box: Number(button.dataset.box) }
+            : null;
+        selectedEntryIds.clear();
+        renderCollectionStatistics();
         renderEntries();
     });
 

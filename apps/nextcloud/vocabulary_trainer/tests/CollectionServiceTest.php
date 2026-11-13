@@ -437,6 +437,69 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue(1, count($db->builders), 'No entry query should run after failed ownership verification.');
     });
 
+    $test('calculates directional box counts, accuracy, and normalized learning progress', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 5]];
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = [['id' => 4], ['id' => 9]];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = [
+            ['entry_id' => 4, 'direction' => 'source_to_target', 'box' => 3, 'answered' => 4, 'answered_correctly' => 3],
+            ['entry_id' => 9, 'direction' => 'source_to_target', 'box' => 5, 'answered' => 2, 'answered_correctly' => 1],
+            ['entry_id' => 9, 'direction' => 'target_to_source', 'box' => 3, 'answered' => 2, 'answered_correctly' => 2],
+        ];
+        $db->nextBuilders = [$collection, $entryQuery, $progressQuery];
+
+        $statistics = (new CollectionService($db))->getCollectionStatistics('alice', 7);
+
+        assertSameValue([
+            'boxCount' => 5,
+            'boxCounts' => [
+                'source_to_target' => [0, 0, 1, 0, 1],
+                'target_to_source' => [1, 0, 1, 0, 0],
+            ],
+            'entryProgress' => [
+                4 => ['source_to_target' => 3, 'target_to_source' => 1],
+                9 => ['source_to_target' => 5, 'target_to_source' => 3],
+            ],
+            'accuracyPercent' => 75.0,
+            'learningProgressPercent' => 50.0,
+        ], $statistics, 'Statistics must include unstarted directions at box one.');
+        assertSameValue('alice', $progressQuery->parameters[':param0'], 'Progress must be scoped to the signed-in user.');
+        assertSameValue([4, 9], $progressQuery->parameters[':param1'], 'Progress must be scoped to entries in this collection.');
+    });
+
+    $test('returns unavailable percentages for an empty collection', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 5]];
+        $entryQuery = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entryQuery];
+
+        assertSameValue([
+            'boxCount' => 5,
+            'boxCounts' => [
+                'source_to_target' => [0, 0, 0, 0, 0],
+                'target_to_source' => [0, 0, 0, 0, 0],
+            ],
+            'entryProgress' => [],
+            'accuracyPercent' => null,
+            'learningProgressPercent' => null,
+        ], (new CollectionService($db))->getCollectionStatistics('alice', 7), 'An empty collection has no measurable percentages.');
+        assertSameValue(2, count($db->builders), 'An empty collection must not query progress rows.');
+    });
+
+    $test('does not expose statistics for another users collection', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $db->nextBuilders[] = $collection;
+
+        assertSameValue(null, (new CollectionService($db))->getCollectionStatistics('alice', 7), 'Other users collection must be hidden.');
+        assertSameValue('alice', $collection->parameters[':param1'], 'Statistics ownership must use the current user.');
+        assertSameValue(1, count($db->builders), 'No entry/progress queries should run for an unowned collection.');
+    });
+
     $test('creates an entry only after verifying ownership and normalizes its content', static function (): void {
         $db = new FakeDatabase();
         $ownerCheck = new FakeQueryBuilder();
