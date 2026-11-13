@@ -150,31 +150,67 @@
         return button;
     }
 
+    function makeIconAction(label, action, id, icon) {
+        const button = makeElement('button', `vt-icon-action vt-icon-action--${action}`);
+        button.type = 'button';
+        button.dataset.action = action;
+        button.dataset.id = String(id);
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        const image = document.createElement('img');
+        image.src = OC.generateUrl(`/apps/vocabulary_trainer/img/${icon}.svg`);
+        image.alt = '';
+        image.setAttribute('aria-hidden', 'true');
+        button.append(image);
+        return button;
+    }
+
     function render() {
         list.replaceChildren();
         emptyState.hidden = !collectionsLoaded || collectionsLoadFailed || collections.length > 0;
 
         collections.forEach((collection) => {
             const card = makeElement('article', 'vt-collection-card');
+            const heading = makeElement('div', 'vt-collection-card-heading');
             const title = makeElement('h3');
             const titleLink = makeElement('a', 'vt-collection-title', collection.name);
             titleLink.href = `#collection-${encodeURIComponent(collection.id)}`;
             titleLink.dataset.action = 'open';
             titleLink.dataset.id = String(collection.id);
             title.append(titleLink);
+            const actions = makeElement('div', 'vt-card-actions');
+            actions.append(
+                makeIconAction(strings.edit, 'edit', collection.id, 'edit'),
+                makeIconAction(strings.remove, 'remove', collection.id, 'delete'),
+            );
+            heading.append(title, actions);
+
             const languages = makeElement('p', 'vt-card-languages', `${collection.sourceLanguage.toUpperCase()} → ${collection.targetLanguage.toUpperCase()}`);
+            const languageRow = makeElement('div', 'vt-card-language-row');
+            const progress = makeElement('div', 'vt-card-progress');
+            const progressPercent = collection.learningProgressPercent;
+            const progressLabel = progressPercent === null
+                ? '—'
+                : `${Math.round(progressPercent)}%`;
+            const progressText = makeElement('div', 'vt-card-progress-text');
+            progressText.append(
+                makeElement('span', '', strings.learningProgress),
+                makeElement('strong', '', progressLabel),
+            );
+            const progressBar = document.createElement('progress');
+            progressBar.max = 100;
+            progressBar.value = progressPercent === null ? 0 : progressPercent;
+            progressBar.setAttribute('aria-label', `${strings.learningProgress}: ${progressLabel}`);
+            progressBar.hidden = progressPercent === null;
+            progress.append(progressText, progressBar);
+            languageRow.append(languages, progress);
+
             const meta = makeElement('div', 'vt-card-meta');
             const entryBadge = makeElement('span', 'vt-badge', `${collection.entryCount} ${strings.entries}`);
             const boxBadge = makeElement('span', 'vt-badge', `${collection.boxCount} ${strings.boxCount.toLowerCase()}`);
-            const actions = makeElement('div', 'vt-card-actions');
 
             meta.append(entryBadge, boxBadge);
-            actions.append(
-                makeAction(strings.openCollection, 'open', collection.id),
-                makeAction(strings.edit, 'edit', collection.id),
-                makeAction(strings.remove, 'remove', collection.id),
-            );
-            card.append(title, languages, meta, actions);
+            card.append(heading, languageRow, meta);
             list.append(card);
         });
     }

@@ -35,6 +35,10 @@ class CollectionService {
         }
 
         $collectionIds = array_map('intval', array_column($rows, 'id'));
+        $boxCountsByCollection = [];
+        foreach ($rows as $row) {
+            $boxCountsByCollection[(int)$row['id']] = (int)$row['box_count'];
+        }
         $entryQuery = $this->db->getQueryBuilder();
         $entryRows = $entryQuery
             ->select('collection_id')
@@ -52,6 +56,28 @@ class CollectionService {
             $entryCounts[$collectionId] = ($entryCounts[$collectionId] ?? 0) + 1;
         }
 
+        $progressQuery = $this->db->getQueryBuilder();
+        $progressRows = $progressQuery
+            ->select('e.collection_id AS collection_id', 'p.box AS box')
+            ->from('vocabulary_progress', 'p')
+            ->leftJoin('p', 'vocabulary_entries', 'e', 'e.id = p.entry_id')
+            ->where($progressQuery->expr()->eq('p.user_id', $progressQuery->createNamedParameter($userId)))
+            ->andWhere($progressQuery->expr()->in(
+                'e.collection_id',
+                $progressQuery->createNamedParameter($collectionIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $progressScores = [];
+        foreach ($progressRows as $progressRow) {
+            $collectionId = (int)$progressRow['collection_id'];
+            $boxCount = $boxCountsByCollection[$collectionId];
+            $box = min($boxCount, max(1, (int)$progressRow['box']));
+            $progressScores[$collectionId] = ($progressScores[$collectionId] ?? 0)
+                + (($box - 1) / max(1, $boxCount - 1));
+        }
+
         return array_map(static fn (array $row): array => [
             'id' => (int)$row['id'],
             'name' => $row['name'],
@@ -59,6 +85,9 @@ class CollectionService {
             'targetLanguage' => $row['target_language'],
             'boxCount' => (int)$row['box_count'],
             'entryCount' => $entryCounts[(int)$row['id']] ?? 0,
+            'learningProgressPercent' => ($entryCounts[(int)$row['id']] ?? 0) > 0
+                ? (($progressScores[(int)$row['id']] ?? 0) / (($entryCounts[(int)$row['id']] ?? 0) * 2)) * 100
+                : null,
         ], $rows);
     }
 
@@ -187,10 +216,10 @@ class CollectionService {
             foreach ($progressRows as $row) {
                 $entryId = (int)$row['entry_id'];
                 $direction = $row['direction'];
-                $box = (int)$row['box'];
-                if (!isset($entryProgress[$entryId]) || !isset($boxCounts[$direction]) || $box < 1 || $box > $boxCount) {
+                if (!isset($entryProgress[$entryId]) || !isset($boxCounts[$direction])) {
                     throw new \RuntimeException('Stored word-pair progress has invalid collection data.');
                 }
+                $box = min($boxCount, max(1, (int)$row['box']));
 
                 $entryProgress[$entryId][$direction] = $box;
                 $boxCounts[$direction][1]--;

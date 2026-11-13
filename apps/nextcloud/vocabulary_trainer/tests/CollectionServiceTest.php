@@ -302,7 +302,9 @@ namespace OCA\VocabularyTrainer\Tests {
         ]];
         $entryQuery = new FakeQueryBuilder();
         $entryQuery->rows = array_fill(0, 9, ['collection_id' => '12']);
-        $db->nextBuilders = [$collectionQuery, $entryQuery];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = array_fill(0, 18, ['collection_id' => '12', 'box' => '4']);
+        $db->nextBuilders = [$collectionQuery, $entryQuery, $progressQuery];
         $service = new CollectionService($db);
 
         assertSameValue([[
@@ -312,11 +314,14 @@ namespace OCA\VocabularyTrainer\Tests {
             'targetLanguage' => 'de',
             'boxCount' => 4,
             'entryCount' => 9,
+            'learningProgressPercent' => 100,
         ]], $service->getCollections('alice'), 'Collection output should use the UI shape.');
         assertTrue(in_array(['where', 'c.user_id = :param0'], $collectionQuery->operations, true), 'List query must scope by owner.');
         assertSameValue('alice', $collectionQuery->parameters[':param0'], 'The owner ID must be bound as a parameter.');
         assertTrue(in_array(['where', 'collection_id IN :param0'], $entryQuery->operations, true), 'Entry counts must only query returned collection IDs.');
         assertSameValue([12], $entryQuery->parameters[':param0'], 'Collection IDs must be bound as an integer array.');
+        assertTrue(in_array(['where', 'p.user_id = :param0'], $progressQuery->operations, true), 'Progress query must be scoped to the signed-in user.');
+        assertTrue(in_array(['andWhere', 'e.collection_id IN :param1'], $progressQuery->operations, true), 'Progress query must be scoped to listed collections.');
     });
 
     $test('does not query entries when the user has no collections', static function (): void {
@@ -488,6 +493,24 @@ namespace OCA\VocabularyTrainer\Tests {
             'learningProgressPercent' => null,
         ], (new CollectionService($db))->getCollectionStatistics('alice', 7), 'An empty collection has no measurable percentages.');
         assertSameValue(2, count($db->builders), 'An empty collection must not query progress rows.');
+    });
+
+    $test('caps saved progress at the current collection box count', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 3]];
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = [['id' => 4]];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = [
+            ['entry_id' => 4, 'direction' => 'source_to_target', 'box' => 5, 'answered' => 1, 'answered_correctly' => 1],
+        ];
+        $db->nextBuilders = [$collection, $entryQuery, $progressQuery];
+
+        $statistics = (new CollectionService($db))->getCollectionStatistics('alice', 7);
+        assertSameValue(3, $statistics['entryProgress'][4]['source_to_target'], 'Progress above the collection maximum should display in its final box.');
+        assertSameValue(50.0, $statistics['learningProgressPercent'], 'Only the progressed direction should contribute to the average.');
+        assertSameValue([0, 0, 1], $statistics['boxCounts']['source_to_target'], 'Capped progress should be counted in the final box.');
     });
 
     $test('does not expose statistics for another users collection', static function (): void {

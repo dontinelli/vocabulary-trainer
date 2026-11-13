@@ -85,7 +85,7 @@ App routes use the `/apps/vocabulary_trainer` prefix. The signed-in Nextcloud se
 
 | Method | Route | Action |
 | --- | --- | --- |
-| GET | `/collections` | List the signed-in user's collections and entry counts |
+| GET | `/collections` | List the signed-in user's collections, entry counts, and normalized learning progress |
 | POST | `/collections` | Create a collection |
 | PUT | `/collections/{id}` | Update a collection |
 | DELETE | `/collections/{id}` | Delete an owned collection and its dependent entries |

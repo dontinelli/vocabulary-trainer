@@ -40,6 +40,22 @@
     margin-bottom: 24px;
 }
 
+.vt-header-brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.vt-app-icon {
+    display: block;
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    background-color: var(--vt-primary);
+    -webkit-mask: url('../img/app.svg') center / contain no-repeat;
+    mask: url('../img/app.svg') center / contain no-repeat;
+}
+
 .vt-header h1 {
     margin: 4px 0 8px;
     font-size: clamp(1.8rem, 3vw, 2.4rem);
@@ -203,9 +219,11 @@
 }
 
 .vt-collection-card {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
     padding: 20px;
-    cursor: pointer;
     transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
@@ -215,8 +233,21 @@
 }
 
 .vt-collection-card h3 {
-    margin: 0 0 6px;
+    min-width: 0;
+    margin: 0;
     font-size: 1.15rem;
+}
+
+.vt-collection-card-heading,
+.vt-card-language-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.vt-collection-card-heading {
+    min-width: 0;
 }
 
 .vt-collection-title {
@@ -237,8 +268,42 @@
 }
 
 .vt-card-languages {
-    margin: 0 0 20px;
+    margin: 0;
     color: var(--vt-muted);
+}
+
+.vt-card-language-row {
+    align-items: flex-start;
+}
+
+.vt-card-progress {
+    flex: 0 1 140px;
+    min-width: 100px;
+}
+
+.vt-card-progress-text {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--vt-muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.vt-card-progress-text strong {
+    color: var(--vt-text);
+}
+
+.vt-card-progress progress {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin-top: 6px;
+    accent-color: var(--vt-primary);
+}
+
+.vt-card-progress progress[hidden] {
+    display: none;
 }
 
 .vt-card-meta {
@@ -257,14 +322,42 @@
 }
 
 .vt-card-actions {
-    justify-content: flex-start;
-    border-top: 1px solid var(--vt-border);
-    padding-top: 14px;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 6px;
 }
 
-.vt-card-actions .vt-button {
-    min-height: 40px;
-    padding: 6px 12px;
+.vt-icon-action {
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-large, 8px);
+    background: transparent;
+    color: var(--vt-text);
+    cursor: pointer;
+}
+
+.vt-icon-action:hover {
+    border-color: var(--vt-border);
+    background: var(--vt-surface-muted);
+}
+
+.vt-icon-action:focus-visible {
+    outline: 2px solid var(--vt-primary);
+    outline-offset: 2px;
+}
+
+.vt-icon-action--remove:hover {
+    border-color: var(--vt-danger);
+}
+
+.vt-icon-action img {
+    display: block;
+    width: 20px;
+    height: 20px;
 }
 
 .vt-empty-state {
@@ -794,6 +887,10 @@
         flex-direction: column;
     }
 
+    .vt-header-brand {
+        align-items: flex-start;
+    }
+
     .vt-detail-heading {
         align-items: flex-start;
         flex-direction: column;
@@ -805,6 +902,15 @@
 
     .vt-collection-stats {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vt-card-language-row {
+        flex-direction: column;
+    }
+
+    .vt-card-progress {
+        width: 100%;
+        max-width: 220px;
     }
 
     .vt-dashboard {

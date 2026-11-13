@@ -6,6 +6,7 @@ $strings = [
     'addCollection' => $l->t('Add collection'),
     'editCollection' => $l->t('Edit collection'),
     'boxCount' => $l->t('Study boxes'),
+    'learningProgress' => $l->t('Learning progress'),
     'entries' => $l->t('entries'),
     'edit' => $l->t('Edit'),
     'remove' => $l->t('Remove'),
@@ -90,10 +91,13 @@ $strings = [
 
             <div id="overview-content">
             <header class="vt-header">
-                <div>
-                    <p class="vt-eyebrow"><?php p($l->t('Vocabulary Trainer')); ?></p>
-                    <h1><?php p($l->t('Learn at your pace')); ?></h1>
-                    <p class="vt-subtitle"><?php p($l->t('Organize your vocabulary and keep track of your learning.')); ?></p>
+                <div class="vt-header-brand">
+                    <span class="vt-app-icon" aria-hidden="true"></span>
+                    <div>
+                        <p class="vt-eyebrow"><?php p($l->t('Vocabulary Trainer')); ?></p>
+                        <h1><?php p($l->t('Learn at your pace')); ?></h1>
+                        <p class="vt-subtitle"><?php p($l->t('Organize your vocabulary and keep track of your learning.')); ?></p>
+                    </div>
                 </div>
             </header>
 
