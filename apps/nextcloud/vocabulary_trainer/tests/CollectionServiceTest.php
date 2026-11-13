@@ -21,6 +21,7 @@ namespace OCP {
 
 namespace OCP\DB\QueryBuilder {
     interface IQueryBuilder {
+        public const PARAM_INT = 1;
         public const PARAM_INT_ARRAY = 101;
     }
 }
@@ -70,12 +71,18 @@ namespace OCP\AppFramework\Http\Attribute {
     #[Attribute(Attribute::TARGET_METHOD)]
     final class NoAdminRequired {
     }
+
+    #[Attribute(Attribute::TARGET_METHOD)]
+    final class NoCSRFRequired {
+    }
 }
 
 namespace OCA\VocabularyTrainer\Tests {
     use InvalidArgumentException;
     use OCA\VocabularyTrainer\Controller\CollectionController;
+    use OCA\VocabularyTrainer\Controller\LearningController;
     use OCA\VocabularyTrainer\Service\CollectionService;
+    use OCA\VocabularyTrainer\Service\LearningService;
     use OCP\IDBConnection;
     use OCP\IRequest;
     use OCP\IUser;
@@ -83,8 +90,10 @@ namespace OCA\VocabularyTrainer\Tests {
     use RuntimeException;
 
     require_once __DIR__ . '/../lib/Service/CollectionService.php';
+    require_once __DIR__ . '/../lib/Service/LearningService.php';
     require_once __DIR__ . '/../lib/Controller/CollectionController.php';
     require_once __DIR__ . '/../lib/Controller/EntryController.php';
+    require_once __DIR__ . '/../lib/Controller/LearningController.php';
 
     final class FakeResult {
         public function __construct(private array $rows = [], private mixed $firstValue = false) {
@@ -96,6 +105,10 @@ namespace OCA\VocabularyTrainer\Tests {
 
         public function fetchOne(): mixed {
             return $this->firstValue;
+        }
+
+        public function fetchAssociative(): array|false {
+            return $this->rows[0] ?? false;
         }
 
         public function fetchFirstColumn(): array {
@@ -289,7 +302,9 @@ namespace OCA\VocabularyTrainer\Tests {
         ]];
         $entryQuery = new FakeQueryBuilder();
         $entryQuery->rows = array_fill(0, 9, ['collection_id' => '12']);
-        $db->nextBuilders = [$collectionQuery, $entryQuery];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = array_fill(0, 18, ['collection_id' => '12', 'box' => '4']);
+        $db->nextBuilders = [$collectionQuery, $entryQuery, $progressQuery];
         $service = new CollectionService($db);
 
         assertSameValue([[
@@ -299,11 +314,14 @@ namespace OCA\VocabularyTrainer\Tests {
             'targetLanguage' => 'de',
             'boxCount' => 4,
             'entryCount' => 9,
+            'learningProgressPercent' => 100,
         ]], $service->getCollections('alice'), 'Collection output should use the UI shape.');
         assertTrue(in_array(['where', 'c.user_id = :param0'], $collectionQuery->operations, true), 'List query must scope by owner.');
         assertSameValue('alice', $collectionQuery->parameters[':param0'], 'The owner ID must be bound as a parameter.');
         assertTrue(in_array(['where', 'collection_id IN :param0'], $entryQuery->operations, true), 'Entry counts must only query returned collection IDs.');
         assertSameValue([12], $entryQuery->parameters[':param0'], 'Collection IDs must be bound as an integer array.');
+        assertTrue(in_array(['where', 'p.user_id = :param0'], $progressQuery->operations, true), 'Progress query must be scoped to the signed-in user.');
+        assertTrue(in_array(['andWhere', 'e.collection_id IN :param1'], $progressQuery->operations, true), 'Progress query must be scoped to listed collections.');
     });
 
     $test('does not query entries when the user has no collections', static function (): void {
@@ -422,6 +440,87 @@ namespace OCA\VocabularyTrainer\Tests {
 
         assertSameValue(null, (new CollectionService($db))->getEntries('alice', 7), 'Other users collection must be hidden.');
         assertSameValue(1, count($db->builders), 'No entry query should run after failed ownership verification.');
+    });
+
+    $test('calculates directional box counts, accuracy, and normalized learning progress', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 5]];
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = [['id' => 4], ['id' => 9]];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = [
+            ['entry_id' => 4, 'direction' => 'source_to_target', 'box' => 3, 'answered' => 4, 'answered_correctly' => 3],
+            ['entry_id' => 9, 'direction' => 'source_to_target', 'box' => 5, 'answered' => 2, 'answered_correctly' => 1],
+            ['entry_id' => 9, 'direction' => 'target_to_source', 'box' => 3, 'answered' => 2, 'answered_correctly' => 2],
+        ];
+        $db->nextBuilders = [$collection, $entryQuery, $progressQuery];
+
+        $statistics = (new CollectionService($db))->getCollectionStatistics('alice', 7);
+
+        assertSameValue([
+            'boxCount' => 5,
+            'boxCounts' => [
+                'source_to_target' => [0, 0, 1, 0, 1],
+                'target_to_source' => [1, 0, 1, 0, 0],
+            ],
+            'entryProgress' => [
+                4 => ['source_to_target' => 3, 'target_to_source' => 1],
+                9 => ['source_to_target' => 5, 'target_to_source' => 3],
+            ],
+            'accuracyPercent' => 75.0,
+            'learningProgressPercent' => 50.0,
+        ], $statistics, 'Statistics must include unstarted directions at box one.');
+        assertSameValue('alice', $progressQuery->parameters[':param0'], 'Progress must be scoped to the signed-in user.');
+        assertSameValue([4, 9], $progressQuery->parameters[':param1'], 'Progress must be scoped to entries in this collection.');
+    });
+
+    $test('returns unavailable percentages for an empty collection', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 5]];
+        $entryQuery = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entryQuery];
+
+        assertSameValue([
+            'boxCount' => 5,
+            'boxCounts' => [
+                'source_to_target' => [0, 0, 0, 0, 0],
+                'target_to_source' => [0, 0, 0, 0, 0],
+            ],
+            'entryProgress' => [],
+            'accuracyPercent' => null,
+            'learningProgressPercent' => null,
+        ], (new CollectionService($db))->getCollectionStatistics('alice', 7), 'An empty collection has no measurable percentages.');
+        assertSameValue(2, count($db->builders), 'An empty collection must not query progress rows.');
+    });
+
+    $test('caps saved progress at the current collection box count', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['box_count' => 3]];
+        $entryQuery = new FakeQueryBuilder();
+        $entryQuery->rows = [['id' => 4]];
+        $progressQuery = new FakeQueryBuilder();
+        $progressQuery->rows = [
+            ['entry_id' => 4, 'direction' => 'source_to_target', 'box' => 5, 'answered' => 1, 'answered_correctly' => 1],
+        ];
+        $db->nextBuilders = [$collection, $entryQuery, $progressQuery];
+
+        $statistics = (new CollectionService($db))->getCollectionStatistics('alice', 7);
+        assertSameValue(3, $statistics['entryProgress'][4]['source_to_target'], 'Progress above the collection maximum should display in its final box.');
+        assertSameValue(50.0, $statistics['learningProgressPercent'], 'Only the progressed direction should contribute to the average.');
+        assertSameValue([0, 0, 1], $statistics['boxCounts']['source_to_target'], 'Capped progress should be counted in the final box.');
+    });
+
+    $test('does not expose statistics for another users collection', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $db->nextBuilders[] = $collection;
+
+        assertSameValue(null, (new CollectionService($db))->getCollectionStatistics('alice', 7), 'Other users collection must be hidden.');
+        assertSameValue('alice', $collection->parameters[':param1'], 'Statistics ownership must use the current user.');
+        assertSameValue(1, count($db->builders), 'No entry/progress queries should run for an unowned collection.');
     });
 
     $test('creates an entry only after verifying ownership and normalizes its content', static function (): void {
@@ -588,5 +687,323 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue([], $db->builders, 'Invalid requests must not access the database.');
     });
 
-    echo "{$passed} collection and word-pair API tests passed.\n";
+    $test('returns default learning preferences for a collection owner', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $settings = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $settings];
+
+        assertSameValue([
+            'startWithNew' => true,
+            'includeFinalBox' => false,
+            'answerDelaySeconds' => 5,
+            'questionTimeLimitSeconds' => 0,
+        ], (new LearningService($db))->getSettings('alice', 7), 'A new user should receive the selected default settings.');
+        assertTrue(in_array(['andWhere', 'user_id = :param1'], $collection->operations, true), 'Collection ownership must be checked.');
+    });
+
+    $test('returns a saved answer delay preference', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [[
+            'start_with_new' => '0',
+            'include_final_box' => '1',
+            'answer_delay_seconds' => '12',
+            'question_time_limit_seconds' => '60',
+        ]];
+        $db->nextBuilders = [$collection, $settings];
+
+        assertSameValue([
+            'startWithNew' => false,
+            'includeFinalBox' => true,
+            'answerDelaySeconds' => 12,
+            'questionTimeLimitSeconds' => 60,
+        ], (new LearningService($db))->getSettings('alice', 7), 'Saved learning preferences should be returned to the setup dialog.');
+    });
+
+    $test('starts automatic sessions with new pairs first and only due pairs', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entries = new FakeQueryBuilder();
+        $entries->rows = [
+            ['id' => '11', 'source_term' => 'one', 'target_term' => 'eins'],
+            ['id' => '12', 'source_term' => 'two', 'target_term' => 'zwei'],
+            ['id' => '13', 'source_term' => 'three', 'target_term' => 'drei'],
+            ['id' => '14', 'source_term' => 'four', 'target_term' => 'vier'],
+        ];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [[
+            'entry_id' => '12',
+            'box' => '1',
+            'answered' => '1',
+            'answered_correctly' => '0',
+            'last_answered_at' => '2026-11-11 10:00:00',
+            'next_ask_at' => null,
+        ], [
+            'entry_id' => '14',
+            'box' => '3',
+            'answered' => '2',
+            'answered_correctly' => '2',
+            'last_answered_at' => '2026-11-11 10:00:00',
+            'next_ask_at' => '2099-01-01 00:00:00',
+        ]];
+        $settingsCheck = new FakeQueryBuilder();
+        $settingsCheck->firstValue = 'alice';
+        $settingsUpdate = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entries, $progress, $settingsCheck, $settingsUpdate];
+
+        $session = (new LearningService($db))->startSession('alice', 7, [
+            'direction' => 'source_to_target',
+            'mode' => 'typed',
+            'selection' => 'automatic',
+            'answerDelaySeconds' => '8',
+            'questionTimeLimitSeconds' => '45',
+        ]);
+        $ids = array_column($session['questions'], 'entryId');
+        assertSameValue(3, $session['totalQuestions'], 'New and due pairs should be selected, but no not-due pair.');
+        assertTrue(in_array(11, array_slice($ids, 0, 2), true), 'New entries should be in the first part of the queue.');
+        assertTrue(in_array(13, array_slice($ids, 0, 2), true), 'All new entries should come before due entries.');
+        assertSameValue(12, $ids[2], 'A due entry should follow the new entries.');
+        assertSameValue('source_to_target', $session['direction'], 'Session direction should be explicit.');
+        assertSameValue('typed', $session['questions'][0]['type'], 'Typed mode should be used for every question.');
+        assertSameValue(8, $session['answerDelaySeconds'], 'The configured answer delay should be returned to the frontend.');
+        assertSameValue(45, $session['questionTimeLimitSeconds'], 'The configured response limit should be returned to the frontend.');
+        assertSameValue(1, $settingsUpdate->parameters[':param0'], 'The new-pair preference should be persisted as an integer.');
+        assertSameValue(0, $settingsUpdate->parameters[':param1'], 'Final-box preference should be persisted as an integer.');
+        assertSameValue(8, $settingsUpdate->parameters[':param2'], 'The answer delay should be persisted.');
+        assertSameValue(45, $settingsUpdate->parameters[':param3'], 'The response time limit should be persisted.');
+        assertTrue(in_array(['update', 'vocabulary_user_settings'], $settingsUpdate->operations, true), 'Session preferences should be persisted.');
+    });
+
+    $test('inserts learning preferences as integer boolean values', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entries = new FakeQueryBuilder();
+        $entries->rows = [['id' => '11', 'source_term' => 'one', 'target_term' => 'eins']];
+        $progress = new FakeQueryBuilder();
+        $settingsCheck = new FakeQueryBuilder();
+        $insert = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entries, $progress, $settingsCheck, $insert];
+
+        (new LearningService($db))->startSession('alice', 7, [
+            'direction' => 'source_to_target',
+            'mode' => 'typed',
+            'selection' => 'automatic',
+            'startWithNew' => '1',
+            'includeFinalBox' => '0',
+        ]);
+
+        assertSameValue(1, $insert->parameters[':param1'], 'The new-pair preference should be stored as integer 1.');
+        assertSameValue(0, $insert->parameters[':param2'], 'The final-box preference should be stored as integer 0.');
+        assertSameValue(5, $insert->parameters[':param3'], 'The default answer delay should be stored as integer 5.');
+        assertSameValue(0, $insert->parameters[':param4'], 'The disabled response limit should be stored as integer 0.');
+        assertSameValue(0, $insert->parameters[':param5'], 'The unused preference should be stored as integer 0.');
+    });
+
+    $test('rejects answer delays outside the supported range', static function (): void {
+        foreach (['0', '31'] as $delay) {
+            $db = new FakeDatabase();
+            try {
+                (new LearningService($db))->startSession('alice', 7, [
+                    'direction' => 'source_to_target',
+                    'mode' => 'typed',
+                    'selection' => 'automatic',
+                    'answerDelaySeconds' => $delay,
+                ]);
+            } catch (InvalidArgumentException $exception) {
+                assertTrue(str_contains($exception->getMessage(), '1 to 30'), 'Validation should explain the supported delay range.');
+                assertSameValue([], $db->builders, 'Invalid delays must be rejected before database access.');
+                continue;
+            }
+            throw new RuntimeException('An out-of-range answer delay should be rejected.');
+        }
+    });
+
+    $test('rejects invalid response time limits', static function (): void {
+        foreach (['-1', '301'] as $limit) {
+            $db = new FakeDatabase();
+            try {
+                (new LearningService($db))->startSession('alice', 7, [
+                    'direction' => 'source_to_target',
+                    'mode' => 'typed',
+                    'selection' => 'automatic',
+                    'questionTimeLimitSeconds' => $limit,
+                ]);
+            } catch (InvalidArgumentException $exception) {
+                assertTrue(str_contains($exception->getMessage(), '1 to 300'), 'Validation should explain the supported response-limit range.');
+                assertSameValue([], $db->builders, 'Invalid response limits must be rejected before database access.');
+                continue;
+            }
+            throw new RuntimeException('An invalid response time limit should be rejected.');
+        }
+    });
+
+    $test('rejects multiple choice when fewer than eleven pairs match', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entries = new FakeQueryBuilder();
+        for ($id = 1; $id <= 10; $id++) {
+            $entries->rows[] = ['id' => (string)$id, 'source_term' => "word{$id}", 'target_term' => "term{$id}"];
+        }
+        $progress = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entries, $progress];
+
+        try {
+            (new LearningService($db))->startSession('alice', 7, [
+                'direction' => 'source_to_target',
+                'mode' => 'multiple-choice',
+                'selection' => 'new',
+            ]);
+        } catch (InvalidArgumentException $exception) {
+            assertTrue(str_contains($exception->getMessage(), '11'), 'Validation should explain the minimum pair count.');
+            assertSameValue(3, count($db->builders), 'Invalid sessions must not persist preferences.');
+            return;
+        }
+        throw new RuntimeException('Multiple choice should require more than ten matching entries.');
+    });
+
+    $test('creates four collection-scoped choices for multiple-choice questions', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entries = new FakeQueryBuilder();
+        for ($id = 1; $id <= 11; $id++) {
+            $entries->rows[] = ['id' => (string)$id, 'source_term' => "word{$id}", 'target_term' => "term{$id}"];
+        }
+        $progress = new FakeQueryBuilder();
+        $settingsCheck = new FakeQueryBuilder();
+        $settingsUpdate = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entries, $progress, $settingsCheck, $settingsUpdate];
+
+        $session = (new LearningService($db))->startSession('alice', 7, [
+            'direction' => 'source_to_target',
+            'mode' => 'multiple-choice',
+            'selection' => 'new',
+            'startWithNew' => '1',
+            'includeFinalBox' => '0',
+        ]);
+        assertSameValue(11, $session['totalQuestions'], 'Every selected pair should be included once.');
+        foreach ($session['questions'] as $question) {
+            assertSameValue('multiple-choice', $question['type'], 'Multiple-choice mode should be applied consistently.');
+            assertSameValue(4, count($question['choices']), 'Each multiple-choice question should have four choices.');
+            foreach ($question['choices'] as $choice) {
+                assertTrue(str_starts_with($choice, 'term'), 'Distractors must come from the collection target terms.');
+            }
+        }
+    });
+
+    $test('grades normalized answers and advances progress in the selected direction', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entry = new FakeQueryBuilder();
+        $entry->rows = [['source_term' => 'hello', 'target_term' => 'hallo']];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [['box' => '2', 'answered' => '4', 'answered_correctly' => '3']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [['start_with_new' => '1', 'include_final_box' => '0']];
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entry, $progress, $settings, $update];
+
+        $result = (new LearningService($db))->answer('alice', 7, 12, [
+            'direction' => 'source_to_target',
+            'answer' => '  HALLO   ',
+        ]);
+        assertSameValue(true, $result['correct'], 'Answer matching should ignore case and repeated whitespace.');
+        assertSameValue(3, $result['box'], 'A correct answer should advance one box.');
+        assertSameValue(5, $result['answered'], 'The total answer count should increase.');
+        assertSameValue(4, $result['answeredCorrectly'], 'The correct answer count should increase.');
+        assertSameValue(3, $update->parameters[':param0'], 'Progress update should persist the advanced box.');
+        assertSameValue(5, $update->parameters[':param1'], 'Progress update should persist the answer count.');
+        assertSameValue(4, $update->parameters[':param2'], 'Progress update should persist the correct answer count.');
+        assertTrue(in_array(['andWhere', 'direction = :param8'], $update->operations, true), 'Progress writes must be scoped by direction.');
+    });
+
+    $test('resets progress to box one after an incorrect answer', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entry = new FakeQueryBuilder();
+        $entry->rows = [['source_term' => 'hello', 'target_term' => 'hallo']];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [['box' => '4', 'answered' => '6', 'answered_correctly' => '5']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [['start_with_new' => '1', 'include_final_box' => '0']];
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entry, $progress, $settings, $update];
+
+        $result = (new LearningService($db))->answer('alice', 7, 12, [
+            'direction' => 'target_to_source',
+            'answer' => 'wrong',
+        ]);
+        assertSameValue(false, $result['correct'], 'An incorrect answer should be reported as such.');
+        assertSameValue('hello', $result['correctAnswer'], 'Correct answer should follow the selected direction.');
+        assertSameValue(1, $result['box'], 'An incorrect answer should reset progress to the first box.');
+        assertSameValue(1, $update->parameters[':param0'], 'The reset box should be persisted.');
+    });
+
+    $test('records an empty skipped answer as incorrect', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entry = new FakeQueryBuilder();
+        $entry->rows = [['source_term' => 'hello', 'target_term' => 'hallo']];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [['box' => '3', 'answered' => '2', 'answered_correctly' => '1']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [['start_with_new' => '1', 'include_final_box' => '0']];
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entry, $progress, $settings, $update];
+
+        $result = (new LearningService($db))->answer('alice', 7, 12, [
+            'direction' => 'source_to_target',
+            'answer' => '',
+        ]);
+        assertSameValue(false, $result['correct'], 'An unanswered question should be incorrect.');
+        assertSameValue('hallo', $result['correctAnswer'], 'The correct answer should be revealed after a skipped question.');
+        assertSameValue(1, $result['box'], 'An unanswered question should reset progress to the first box.');
+        assertSameValue(3, $result['answered'], 'An unanswered question should increase the answer count.');
+        assertSameValue(1, $result['answeredCorrectly'], 'An unanswered question should not increase correct answers.');
+    });
+
+    $test('schedules final-box review after fifteen days when enabled', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entry = new FakeQueryBuilder();
+        $entry->rows = [['source_term' => 'hello', 'target_term' => 'hallo']];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [['box' => '4', 'answered' => '5', 'answered_correctly' => '5']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [['start_with_new' => '1', 'include_final_box' => '1']];
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entry, $progress, $settings, $update];
+
+        $result = (new LearningService($db))->answer('alice', 7, 12, [
+            'direction' => 'source_to_target',
+            'answer' => 'hallo',
+        ]);
+        assertSameValue(5, $result['box'], 'Correctly answering box four should advance to the final box.');
+        $answeredAt = new \DateTimeImmutable($update->parameters[':param3'], new \DateTimeZone('UTC'));
+        $nextAskAt = new \DateTimeImmutable($update->parameters[':param4'], new \DateTimeZone('UTC'));
+        assertSameValue($answeredAt->modify('+15 days')->format('Y-m-d H:i:s'), $nextAskAt->format('Y-m-d H:i:s'), 'The final box should be scheduled after fifteen days.');
+    });
+
+    $test('rejects unauthenticated learning requests', static function (): void {
+        $controller = new LearningController(
+            'vocabulary_trainer',
+            new FakeRequest(),
+            new LearningService(new FakeDatabase()),
+            new FakeUserSession(null),
+        );
+        assertSameValue(401, $controller->settings(7)->getStatus(), 'Learning settings should require a signed-in user.');
+    });
+
+    echo "{$passed} collection, word-pair, and learning API tests passed.\n";
 }

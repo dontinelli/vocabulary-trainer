@@ -29,6 +29,7 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
    - choose study mode: multiple choice or typed answer
    - generate questions from entries in the collection
    - use a choice set from the same collection and target language for multiple-choice prompts
+   - show answer feedback for a configurable delay, then advance automatically; allow pausing the countdown
 
 4. Progress tracking
    - track progress per user, entry, and direction

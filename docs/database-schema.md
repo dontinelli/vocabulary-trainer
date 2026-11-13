@@ -72,11 +72,13 @@ Table: `vocabulary_user_settings`
 | user_id | varchar(255) PK | Nextcloud user |
 | start_with_new | bool | study new pairs before repeating existing ones |
 | include_final_box | bool | continue asking pairs in the final box |
+| answer_delay_seconds | int | seconds to show answer feedback before advancing; default 5, range 1–30 |
+| question_time_limit_seconds | int | time to answer; 0 means unlimited, otherwise 1–300 seconds |
 | return_by_mistake | bool | whether a mistake lowers progress by one box or resets to box 1 |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
-These are the initial baseline settings; additional settings may be added later. Their default values and precise behavior should be set by the application when initializing a user's settings.
+Settings are stored per user. The initial migration creates the baseline table; later versioned migrations may add fields with defaults for existing users.
 
 ## 5. Installation and validation
 
@@ -102,5 +104,8 @@ The Nextcloud UI uses these authenticated app routes:
 | POST | `/apps/vocabulary_trainer/collections` | Validate and create a collection owned by the current user |
 | PUT | `/apps/vocabulary_trainer/collections/{id}` | Validate and update a collection owned by the current user |
 | DELETE | `/apps/vocabulary_trainer/collections/{id}` | Delete a collection owned by the current user |
+| GET | `/apps/vocabulary_trainer/collections/{collectionId}/statistics` | Return per-direction box counts, answer accuracy, and normalized learning progress for an owned collection |
 
 Write routes retain Nextcloud's request-token/CSRF protection. Ownership is always derived from the authenticated user session, not a request parameter. Updates and deletes are scoped by both collection ID and owner; a missing or other user's collection returns not found. Collection names are required and limited to 255 characters, language tags are validated and must differ, and `box_count` must be between 2 and 10.
+
+Collection accuracy combines `answered` and `answered_correctly` across both directions and is unavailable until at least one answer is recorded. Learning progress averages each pair-direction's normalized box advancement, with box 1 at 0% and the final box at 100%; unstarted directions count as box 1. Box counts are shown separately for each direction, and selecting a direction and box filters the displayed word pairs accordingly.

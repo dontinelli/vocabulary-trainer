@@ -9,6 +9,6 @@ Vocabulary Trainer is a Nextcloud app for organizing vocabulary into private col
 - Add and edit word pairs, including saving one pair and immediately entering another.
 - Select multiple pairs to move them to another collection or delete them.
 
-Study sessions and learning statistics are planned, but are not available yet.
+Start learning sessions from a collection using typed answers, multiple choice, or a mix of both. Set an optional response time limit; answers automatically advance after a configurable display delay. Pause either countdown with the pin control or click the card outside its controls to move to the next step early. The collection dashboard and learning statistics are still in development.
 
 For app usage details, see the [Nextcloud app guide](apps/nextcloud/vocabulary_trainer/README.md). Contributors can find setup, testing, API, and architecture information in the [development manual](docs/development.md).
