@@ -158,7 +158,7 @@
         button.setAttribute('aria-label', label);
         button.title = label;
         const image = document.createElement('img');
-        image.src = OC.generateUrl(`/apps/vocabulary_trainer/img/${icon}.svg`);
+        image.src = OC.imagePath('vocabulary_trainer', icon);
         image.alt = '';
         image.setAttribute('aria-hidden', 'true');
         button.append(image);
