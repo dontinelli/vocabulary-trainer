@@ -72,11 +72,13 @@ Table: `vocabulary_user_settings`
 | user_id | varchar(255) PK | Nextcloud user |
 | start_with_new | bool | study new pairs before repeating existing ones |
 | include_final_box | bool | continue asking pairs in the final box |
+| answer_delay_seconds | int | seconds to show answer feedback before advancing; default 5, range 1–30 |
+| question_time_limit_seconds | int | time to answer; 0 means unlimited, otherwise 1–300 seconds |
 | return_by_mistake | bool | whether a mistake lowers progress by one box or resets to box 1 |
 | created_at | datetime | UTC |
 | updated_at | datetime | UTC |
 
-These are the initial baseline settings; additional settings may be added later. Their default values and precise behavior should be set by the application when initializing a user's settings.
+Settings are stored per user. The initial migration creates the baseline table; later versioned migrations may add fields with defaults for existing users.
 
 ## 5. Installation and validation
 

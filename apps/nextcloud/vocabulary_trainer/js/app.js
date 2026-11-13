@@ -43,13 +43,24 @@
     const studySetupDialog = document.getElementById('study-setup-dialog');
     const studySetupForm = document.getElementById('study-setup-form');
     const studySetupError = document.getElementById('study-setup-error');
+    const responseTimeInput = studySetupForm.elements.questionTimeLimitSeconds;
     const studyView = document.getElementById('study-view');
     const studyQuestionView = document.getElementById('study-question-view');
     const studyAnswerForm = document.getElementById('study-answer-form');
+    const studyTimerControls = document.getElementById('study-timer-controls');
+    const studyTimerProgress = document.getElementById('study-auto-advance');
+    const pauseStudyTimerButton = document.getElementById('pause-study-timer');
     let studySession = null;
     let studyIndex = 0;
     let studyCorrect = 0;
     let studyAnswered = false;
+    let studyAdvanceFrame = null;
+    let studyTimerTotalMs = 0;
+    let studyTimerRemainingMs = 0;
+    let studyTimerLastFrame = null;
+    let studyTimerPaused = false;
+    let studyTimerPhase = null;
+    let studySubmitting = false;
     let saveAndAddAnotherRequested = false;
 
     async function request(path, method, data) {
@@ -256,6 +267,10 @@
         studySetupError.textContent = '';
         studySetupForm.elements.startWithNew.checked = true;
         studySetupForm.elements.includeFinalBox.checked = false;
+        studySetupForm.elements.answerDelaySeconds.value = '5';
+        studySetupForm.elements.limitResponseTime.checked = false;
+        responseTimeInput.value = '30';
+        responseTimeInput.disabled = true;
         const startButton = document.getElementById('start-study-session');
         startButton.disabled = true;
         const source = `${activeCollection.sourceLanguage.toUpperCase()} → ${activeCollection.targetLanguage.toUpperCase()}`;
@@ -280,6 +295,11 @@
             const settings = await request(`/${encodeURIComponent(activeCollection.id)}/study/settings`, 'GET');
             studySetupForm.elements.startWithNew.checked = Boolean(settings.startWithNew);
             studySetupForm.elements.includeFinalBox.checked = Boolean(settings.includeFinalBox);
+            studySetupForm.elements.answerDelaySeconds.value = String(settings.answerDelaySeconds ?? 5);
+            const responseTimeLimit = Number(settings.questionTimeLimitSeconds ?? 0);
+            studySetupForm.elements.limitResponseTime.checked = responseTimeLimit > 0;
+            responseTimeInput.value = String(responseTimeLimit > 0 ? responseTimeLimit : 30);
+            responseTimeInput.disabled = !studySetupForm.elements.limitResponseTime.checked;
         } catch (error) {
             studySetupError.textContent = error.message;
             studySetupError.hidden = false;
@@ -302,6 +322,10 @@
             days: studySetupForm.elements.days.value,
             startWithNew: studySetupForm.elements.startWithNew.checked ? '1' : '0',
             includeFinalBox: studySetupForm.elements.includeFinalBox.checked ? '1' : '0',
+            answerDelaySeconds: studySetupForm.elements.answerDelaySeconds.value,
+            questionTimeLimitSeconds: studySetupForm.elements.limitResponseTime.checked
+                ? responseTimeInput.value
+                : '0',
         };
         try {
             const session = await request(`/${encodeURIComponent(activeCollection.id)}/study/session`, 'POST', data);
@@ -312,6 +336,7 @@
             studyIndex = 0;
             studyCorrect = 0;
             studyAnswered = false;
+            studySubmitting = false;
             closeDialog(studySetupDialog);
             detail.hidden = true;
             studyView.hidden = false;
@@ -333,7 +358,16 @@
 
     function renderStudyQuestion() {
         const question = studySession.questions[studyIndex];
+        stopStudyAdvanceTimer();
         studyAnswered = false;
+        studySubmitting = false;
+        studyTimerPhase = 'question';
+        studyTimerPaused = false;
+        studyTimerControls.hidden = true;
+        studyTimerProgress.hidden = true;
+        studyTimerProgress.value = 100;
+        pauseStudyTimerButton.hidden = true;
+        updateStudyTimerButton();
         studyAnswerForm.classList.remove('is-correct', 'is-incorrect');
         document.getElementById('study-question-progress').textContent =
             strings.sessionProgress
@@ -343,7 +377,6 @@
         document.getElementById('study-answer-area').replaceChildren();
         document.getElementById('study-answer-error').hidden = true;
         document.getElementById('study-feedback').hidden = true;
-        document.getElementById('continue-study').hidden = true;
         document.getElementById('submit-study-answer').hidden = false;
 
         const answerArea = document.getElementById('study-answer-area');
@@ -355,7 +388,6 @@
                 radio.type = 'radio';
                 radio.name = 'answer';
                 radio.value = choice;
-                radio.required = true;
                 label.append(radio, makeElement('span', '', choice));
                 choices.append(label);
             });
@@ -365,32 +397,107 @@
             const answer = document.createElement('textarea');
             answer.name = 'answer';
             answer.rows = 2;
-            answer.required = true;
             answer.autocomplete = 'off';
             answer.setAttribute('aria-label', strings.typedMode);
             answerArea.append(answer);
             answer.focus();
         }
+        if (studySession.questionTimeLimitSeconds > 0) {
+            startStudyAdvanceTimer('question', studySession.questionTimeLimitSeconds);
+        }
     }
 
-    async function submitStudyAnswer(event) {
-        event.preventDefault();
-        if (!studySession || studyAnswered || !activeCollection) {
+    function stopStudyAdvanceTimer() {
+        if (studyAdvanceFrame !== null) {
+            cancelAnimationFrame(studyAdvanceFrame);
+            studyAdvanceFrame = null;
+        }
+        studyTimerLastFrame = null;
+    }
+
+    function updateStudyTimerButton() {
+        const label = studyTimerPaused ? strings.resumeAutomaticAdvance : strings.pauseAutomaticAdvance;
+        pauseStudyTimerButton.setAttribute('aria-pressed', String(studyTimerPaused));
+        pauseStudyTimerButton.setAttribute('aria-label', label);
+        pauseStudyTimerButton.title = label;
+    }
+
+    function updateStudyAdvanceTimer(timestamp) {
+        if (studyTimerPaused || studyTimerPhase === null || studySubmitting) {
+            studyAdvanceFrame = null;
             return;
         }
-        if (!studyAnswerForm.reportValidity()) {
+        if (studyTimerLastFrame !== null) {
+            studyTimerRemainingMs -= timestamp - studyTimerLastFrame;
+        }
+        studyTimerLastFrame = timestamp;
+        studyTimerProgress.value = Math.max(0, studyTimerRemainingMs / studyTimerTotalMs * 100);
+        if (studyTimerRemainingMs <= 0) {
+            studyAdvanceFrame = null;
+            const phase = studyTimerPhase;
+            studyTimerPhase = null;
+            if (phase === 'question') {
+                void submitStudyAnswer(null, true);
+            } else {
+                advanceStudy();
+            }
+            return;
+        }
+        studyAdvanceFrame = requestAnimationFrame(updateStudyAdvanceTimer);
+    }
+
+    function startStudyAdvanceTimer(phase, durationSeconds) {
+        stopStudyAdvanceTimer();
+        studyTimerPhase = phase;
+        studyTimerTotalMs = durationSeconds * 1000;
+        studyTimerRemainingMs = studyTimerTotalMs;
+        studyTimerPaused = false;
+        studyTimerControls.hidden = phase !== 'answer';
+        studyTimerProgress.value = 100;
+        studyTimerProgress.hidden = false;
+        studyTimerProgress.setAttribute(
+            'aria-label',
+            phase === 'question' ? strings.responseTimerLabel : strings.nextQuestionTimer,
+        );
+        pauseStudyTimerButton.hidden = phase !== 'answer';
+        updateStudyTimerButton();
+        studyAdvanceFrame = requestAnimationFrame(updateStudyAdvanceTimer);
+    }
+
+    function toggleStudyTimer() {
+        if (studyTimerPhase === null) {
+            return;
+        }
+        studyTimerPaused = !studyTimerPaused;
+        updateStudyTimerButton();
+        if (studyTimerPaused) {
+            if (studyAdvanceFrame !== null) {
+                cancelAnimationFrame(studyAdvanceFrame);
+                studyAdvanceFrame = null;
+            }
+            studyTimerLastFrame = null;
+            return;
+        }
+        studyTimerLastFrame = null;
+        studyAdvanceFrame = requestAnimationFrame(updateStudyAdvanceTimer);
+    }
+
+    async function submitStudyAnswer(event, bypassValidation = false) {
+        event?.preventDefault();
+        if (!studySession || studyAnswered || studySubmitting || !activeCollection) {
+            return;
+        }
+        if (!bypassValidation && !studyAnswerForm.reportValidity()) {
             return;
         }
         const question = studySession.questions[studyIndex];
-        const answer = new FormData(studyAnswerForm).get('answer');
-        if (typeof answer !== 'string' || answer.trim() === '') {
-            const error = document.getElementById('study-answer-error');
-            error.textContent = strings.answerRequired;
-            error.hidden = false;
-            return;
-        }
+        const answerValue = new FormData(studyAnswerForm).get('answer');
+        const answer = typeof answerValue === 'string' ? answerValue : '';
 
         const submitButton = document.getElementById('submit-study-answer');
+        studySubmitting = true;
+        studyTimerPhase = null;
+        stopStudyAdvanceTimer();
         submitButton.disabled = true;
         try {
             const result = await request(
@@ -412,23 +519,33 @@
             }
             document.getElementById('study-feedback').hidden = false;
             submitButton.hidden = true;
-            document.getElementById('continue-study').hidden = false;
             studyAnswerForm.querySelectorAll('input, textarea').forEach((input) => {
                 input.disabled = true;
             });
+            startStudyAdvanceTimer('answer', studySession.answerDelaySeconds);
+            document.getElementById('study-feedback').focus();
         } catch (error) {
             const message = document.getElementById('study-answer-error');
             message.textContent = error.message;
             message.hidden = false;
+            studyTimerPhase = 'question';
+            if (studySession.questionTimeLimitSeconds > 0) {
+                startStudyAdvanceTimer('question', studySession.questionTimeLimitSeconds);
+            }
         } finally {
+            studySubmitting = false;
             submitButton.disabled = false;
         }
     }
 
-    function continueStudy() {
+    function advanceStudy() {
         if (!studySession || !studyAnswered) {
             return;
         }
+        stopStudyAdvanceTimer();
+        studyTimerPhase = null;
+        studyTimerControls.hidden = true;
+        studyTimerProgress.hidden = true;
         studyIndex++;
         if (studyIndex >= studySession.questions.length) {
             studyQuestionView.hidden = true;
@@ -443,6 +560,8 @@
     }
 
     function exitStudy() {
+        stopStudyAdvanceTimer();
+        studyTimerPhase = null;
         studyView.hidden = true;
         detail.hidden = false;
         studySession = null;
@@ -644,9 +763,36 @@
 
     document.getElementById('start-learning').addEventListener('click', openStudySetup);
     studySetupForm.elements.selection.addEventListener('change', updateStudySelectionOptions);
+    studySetupForm.elements.limitResponseTime.addEventListener('change', () => {
+        responseTimeInput.disabled = !studySetupForm.elements.limitResponseTime.checked;
+    });
     studySetupForm.addEventListener('submit', beginStudy);
     studyAnswerForm.addEventListener('submit', submitStudyAnswer);
-    document.getElementById('continue-study').addEventListener('click', continueStudy);
+    studyAnswerForm.addEventListener('change', (event) => {
+        if (event.target.matches('input[type="radio"]')) {
+            void submitStudyAnswer(null, true);
+        }
+    });
+    pauseStudyTimerButton.addEventListener('click', toggleStudyTimer);
+    document.querySelector('.vt-study-card').addEventListener('click', (event) => {
+        if (event.target.closest('#pause-study-timer') || studySubmitting) {
+            return;
+        }
+        if (studyTimerPhase === 'question') {
+            if (event.target.closest('button, input, textarea, select, label, a')) {
+                return;
+            }
+            void submitStudyAnswer(null, true);
+        } else if (studyTimerPhase === 'answer') {
+            advanceStudy();
+        }
+    });
+    document.getElementById('study-feedback').addEventListener('keydown', (event) => {
+        if ((event.key === 'Enter' || event.key === ' ') && studyTimerPhase === 'answer') {
+            event.preventDefault();
+            advanceStudy();
+        }
+    });
     document.getElementById('exit-study').addEventListener('click', exitStudy);
     document.getElementById('finish-study').addEventListener('click', exitStudy);
 

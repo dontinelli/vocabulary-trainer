@@ -10,7 +10,8 @@ Vocabulary Trainer helps you organize vocabulary in your Nextcloud account. Crea
 4. Add word pairs with a source word or phrase and its translation. Notes are optional.
 5. Use **Save and add another** to keep entering pairs without closing the dialog.
 6. Choose **Start learning** in a collection to select a translation direction, question mode, and which pairs to practice. Automatic sessions include new and due pairs; targeted sessions can focus on new pairs, a box, an error-rate threshold, or pairs not practiced for a selected number of days.
-7. Type answers or choose from multiple-choice options. Multiple choice and mixed modes require at least 11 matching pairs.
+7. Type answers or choose from multiple-choice options. Multiple choice and mixed modes require at least 11 matching pairs. You can optionally set a response time limit or leave it unlimited. An unanswered timeout is recorded as incorrect.
+After each answer, the result stays visible for your chosen delay (five seconds by default) before the next question. Use the pin button to pause or resume either timer, or click the card outside its controls to move to the next step early.
 8. Edit individual pairs or select several to move them to another collection or delete them.
 
 Correct answers move a pair up one study box; incorrect answers return it to the first box. Reviews are scheduled at increasing intervals. The collection dashboard and learning statistics are still placeholders.

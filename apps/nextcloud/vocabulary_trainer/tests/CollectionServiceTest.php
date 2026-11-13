@@ -611,8 +611,31 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue([
             'startWithNew' => true,
             'includeFinalBox' => false,
+            'answerDelaySeconds' => 5,
+            'questionTimeLimitSeconds' => 0,
         ], (new LearningService($db))->getSettings('alice', 7), 'A new user should receive the selected default settings.');
         assertTrue(in_array(['andWhere', 'user_id = :param1'], $collection->operations, true), 'Collection ownership must be checked.');
+    });
+
+    $test('returns a saved answer delay preference', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [[
+            'start_with_new' => '0',
+            'include_final_box' => '1',
+            'answer_delay_seconds' => '12',
+            'question_time_limit_seconds' => '60',
+        ]];
+        $db->nextBuilders = [$collection, $settings];
+
+        assertSameValue([
+            'startWithNew' => false,
+            'includeFinalBox' => true,
+            'answerDelaySeconds' => 12,
+            'questionTimeLimitSeconds' => 60,
+        ], (new LearningService($db))->getSettings('alice', 7), 'Saved learning preferences should be returned to the setup dialog.');
     });
 
     $test('starts automatic sessions with new pairs first and only due pairs', static function (): void {
@@ -651,6 +674,8 @@ namespace OCA\VocabularyTrainer\Tests {
             'direction' => 'source_to_target',
             'mode' => 'typed',
             'selection' => 'automatic',
+            'answerDelaySeconds' => '8',
+            'questionTimeLimitSeconds' => '45',
         ]);
         $ids = array_column($session['questions'], 'entryId');
         assertSameValue(3, $session['totalQuestions'], 'New and due pairs should be selected, but no not-due pair.');
@@ -659,8 +684,12 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue(12, $ids[2], 'A due entry should follow the new entries.');
         assertSameValue('source_to_target', $session['direction'], 'Session direction should be explicit.');
         assertSameValue('typed', $session['questions'][0]['type'], 'Typed mode should be used for every question.');
+        assertSameValue(8, $session['answerDelaySeconds'], 'The configured answer delay should be returned to the frontend.');
+        assertSameValue(45, $session['questionTimeLimitSeconds'], 'The configured response limit should be returned to the frontend.');
         assertSameValue(1, $settingsUpdate->parameters[':param0'], 'The new-pair preference should be persisted as an integer.');
         assertSameValue(0, $settingsUpdate->parameters[':param1'], 'Final-box preference should be persisted as an integer.');
+        assertSameValue(8, $settingsUpdate->parameters[':param2'], 'The answer delay should be persisted.');
+        assertSameValue(45, $settingsUpdate->parameters[':param3'], 'The response time limit should be persisted.');
         assertTrue(in_array(['update', 'vocabulary_user_settings'], $settingsUpdate->operations, true), 'Session preferences should be persisted.');
     });
 
@@ -685,7 +714,47 @@ namespace OCA\VocabularyTrainer\Tests {
 
         assertSameValue(1, $insert->parameters[':param1'], 'The new-pair preference should be stored as integer 1.');
         assertSameValue(0, $insert->parameters[':param2'], 'The final-box preference should be stored as integer 0.');
-        assertSameValue(0, $insert->parameters[':param3'], 'The unused preference should be stored as integer 0.');
+        assertSameValue(5, $insert->parameters[':param3'], 'The default answer delay should be stored as integer 5.');
+        assertSameValue(0, $insert->parameters[':param4'], 'The disabled response limit should be stored as integer 0.');
+        assertSameValue(0, $insert->parameters[':param5'], 'The unused preference should be stored as integer 0.');
+    });
+
+    $test('rejects answer delays outside the supported range', static function (): void {
+        foreach (['0', '31'] as $delay) {
+            $db = new FakeDatabase();
+            try {
+                (new LearningService($db))->startSession('alice', 7, [
+                    'direction' => 'source_to_target',
+                    'mode' => 'typed',
+                    'selection' => 'automatic',
+                    'answerDelaySeconds' => $delay,
+                ]);
+            } catch (InvalidArgumentException $exception) {
+                assertTrue(str_contains($exception->getMessage(), '1 to 30'), 'Validation should explain the supported delay range.');
+                assertSameValue([], $db->builders, 'Invalid delays must be rejected before database access.');
+                continue;
+            }
+            throw new RuntimeException('An out-of-range answer delay should be rejected.');
+        }
+    });
+
+    $test('rejects invalid response time limits', static function (): void {
+        foreach (['-1', '301'] as $limit) {
+            $db = new FakeDatabase();
+            try {
+                (new LearningService($db))->startSession('alice', 7, [
+                    'direction' => 'source_to_target',
+                    'mode' => 'typed',
+                    'selection' => 'automatic',
+                    'questionTimeLimitSeconds' => $limit,
+                ]);
+            } catch (InvalidArgumentException $exception) {
+                assertTrue(str_contains($exception->getMessage(), '1 to 300'), 'Validation should explain the supported response-limit range.');
+                assertSameValue([], $db->builders, 'Invalid response limits must be rejected before database access.');
+                continue;
+            }
+            throw new RuntimeException('An invalid response time limit should be rejected.');
+        }
     });
 
     $test('rejects multiple choice when fewer than eleven pairs match', static function (): void {
@@ -791,6 +860,30 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue('hello', $result['correctAnswer'], 'Correct answer should follow the selected direction.');
         assertSameValue(1, $result['box'], 'An incorrect answer should reset progress to the first box.');
         assertSameValue(1, $update->parameters[':param0'], 'The reset box should be persisted.');
+    });
+
+    $test('records an empty skipped answer as incorrect', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entry = new FakeQueryBuilder();
+        $entry->rows = [['source_term' => 'hello', 'target_term' => 'hallo']];
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [['box' => '3', 'answered' => '2', 'answered_correctly' => '1']];
+        $settings = new FakeQueryBuilder();
+        $settings->rows = [['start_with_new' => '1', 'include_final_box' => '0']];
+        $update = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entry, $progress, $settings, $update];
+
+        $result = (new LearningService($db))->answer('alice', 7, 12, [
+            'direction' => 'source_to_target',
+            'answer' => '',
+        ]);
+        assertSameValue(false, $result['correct'], 'An unanswered question should be incorrect.');
+        assertSameValue('hallo', $result['correctAnswer'], 'The correct answer should be revealed after a skipped question.');
+        assertSameValue(1, $result['box'], 'An unanswered question should reset progress to the first box.');
+        assertSameValue(3, $result['answered'], 'An unanswered question should increase the answer count.');
+        assertSameValue(1, $result['answeredCorrectly'], 'An unanswered question should not increase correct answers.');
     });
 
     $test('schedules final-box review after fifteen days when enabled', static function (): void {

@@ -62,17 +62,22 @@ $strings = [
     'daysSincePractice' => $l->t('Days since last practice'),
     'startWithNew' => $l->t('Ask new pairs first'),
     'includeFinalBox' => $l->t('Include the final box in automatic sessions'),
+    'answerDelaySeconds' => $l->t('Seconds to show the answer'),
+    'limitResponseTime' => $l->t('Limit time to answer'),
+    'questionTimeLimitSeconds' => $l->t('Seconds per answer'),
     'startSession' => $l->t('Start session'),
     'noQuestions' => $l->t('No word pairs match this session.'),
     'sessionProgress' => $l->t('Question {current} of {total}'),
     'submitAnswer' => $l->t('Check answer'),
-    'continueSession' => $l->t('Continue'),
     'correctAnswer' => $l->t('Correct!'),
     'incorrectAnswer' => $l->t('Not quite. The correct answer is: {answer}'),
     'sessionComplete' => $l->t('Session complete'),
     'sessionSummary' => $l->t('You answered {correct} of {total} correctly.'),
     'returnToCollection' => $l->t('Return to collection'),
-    'answerRequired' => $l->t('Enter or select an answer first.'),
+    'pauseAutomaticAdvance' => $l->t('Pause automatic advance'),
+    'resumeAutomaticAdvance' => $l->t('Resume automatic advance'),
+    'nextQuestionTimer' => $l->t('Time remaining before the next question'),
+    'responseTimerLabel' => $l->t('Time remaining to answer'),
 ];
 ?>
 
@@ -215,14 +220,22 @@ $strings = [
                 <div id="study-question-view" hidden>
                     <p id="study-question-progress" class="vt-study-progress"></p>
                     <div class="vt-study-card">
+                        <div class="vt-study-timer-row" id="study-timer-controls" hidden>
+                            <button class="vt-pin-button" id="pause-study-timer" type="button" aria-label="<?php p($l->t('Pause automatic advance')); ?>" title="<?php p($l->t('Pause automatic advance')); ?>" aria-pressed="false" hidden>
+                                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M14 3 21 10l-4 1-3 5-1 5-2-2 2-6-5-5-4 1-2-2 5-1 5-5z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <progress class="vt-study-timer" id="study-auto-advance" value="100" max="100" aria-label="<?php p($l->t('Time remaining before the next question')); ?>" hidden></progress>
                         <h3 id="study-prompt"></h3>
                         <form id="study-answer-form" class="vt-study-answer-form">
                             <div id="study-answer-area"></div>
                             <p class="vt-error-alert" id="study-answer-error" role="alert" hidden></p>
                             <button class="vt-button vt-button--primary" id="submit-study-answer" type="submit"><?php p($l->t('Check answer')); ?></button>
                         </form>
-                        <p class="vt-study-feedback" id="study-feedback" role="status" hidden></p>
-                        <button class="vt-button vt-button--primary" id="continue-study" type="button" hidden><?php p($l->t('Continue')); ?></button>
+                        <p class="vt-study-feedback" id="study-feedback" role="status" tabindex="-1" hidden></p>
+                        <p class="vt-study-hint"><?php p($l->t('Click the card outside the answer controls to move to the next step.')); ?></p>
                     </div>
                 </div>
                 <div class="vt-empty-state" id="study-empty" hidden>
@@ -324,6 +337,18 @@ $strings = [
                     <label class="vt-checkbox-field">
                         <input name="includeFinalBox" type="checkbox">
                         <span><?php p($l->t('Include the final box in automatic sessions')); ?></span>
+                    </label>
+                    <label>
+                        <span><?php p($l->t('Seconds to show the answer')); ?></span>
+                        <input name="answerDelaySeconds" type="number" min="1" max="30" step="1" value="5" required>
+                    </label>
+                    <label class="vt-checkbox-field">
+                        <input name="limitResponseTime" type="checkbox">
+                        <span><?php p($l->t('Limit time to answer (leave unchecked for unlimited)')); ?></span>
+                    </label>
+                    <label>
+                        <span><?php p($l->t('Seconds per answer')); ?></span>
+                        <input name="questionTimeLimitSeconds" type="number" min="1" max="300" step="1" value="30" required disabled>
                     </label>
                 </div>
                 <div class="vt-dialog-actions">

@@ -14,6 +14,8 @@ class LearningService {
     private const DEFAULT_SETTINGS = [
         'startWithNew' => true,
         'includeFinalBox' => false,
+        'answerDelaySeconds' => 5,
+        'questionTimeLimitSeconds' => 0,
     ];
 
     private const BOX_INTERVALS = [
@@ -40,7 +42,7 @@ class LearningService {
         }
 
         $query = $this->db->getQueryBuilder();
-        $row = $query->select('start_with_new', 'include_final_box')
+        $row = $query->select('start_with_new', 'include_final_box', 'answer_delay_seconds', 'question_time_limit_seconds')
             ->from('vocabulary_user_settings')
             ->where($query->expr()->eq('user_id', $query->createNamedParameter($userId)))
             ->executeQuery()
@@ -53,6 +55,8 @@ class LearningService {
         return [
             'startWithNew' => (bool)$row['start_with_new'],
             'includeFinalBox' => (bool)$row['include_final_box'],
+            'answerDelaySeconds' => (int)($row['answer_delay_seconds'] ?? self::DEFAULT_SETTINGS['answerDelaySeconds']),
+            'questionTimeLimitSeconds' => (int)($row['question_time_limit_seconds'] ?? self::DEFAULT_SETTINGS['questionTimeLimitSeconds']),
         ];
     }
 
@@ -66,6 +70,8 @@ class LearningService {
         $settings = [
             'startWithNew' => $config['startWithNew'],
             'includeFinalBox' => $config['includeFinalBox'],
+            'answerDelaySeconds' => $config['answerDelaySeconds'],
+            'questionTimeLimitSeconds' => $config['questionTimeLimitSeconds'],
         ];
         $entries = $this->getCollectionEntries($collectionId);
         if ($config['selection'] === 'box' && $config['box'] > (int)$collection['box_count']) {
@@ -90,6 +96,8 @@ class LearningService {
         return [
             'direction' => $config['direction'],
             'mode' => $config['mode'],
+            'answerDelaySeconds' => $settings['answerDelaySeconds'],
+            'questionTimeLimitSeconds' => $settings['questionTimeLimitSeconds'],
             'totalQuestions' => count($questions),
             'questions' => $this->makeQuestions($entries, $questions, $config),
         ];
@@ -98,8 +106,8 @@ class LearningService {
     public function answer(string $userId, int $collectionId, int $entryId, array $data): ?array {
         $direction = $this->validateDirection($data['direction'] ?? null);
         $answer = $data['answer'] ?? null;
-        if (!is_string($answer) || trim($answer) === '' || strlen(trim($answer)) > 65535) {
-            throw new InvalidArgumentException('Enter an answer of up to 65,535 bytes.');
+        if (!is_string($answer) || strlen(trim($answer)) > 65535) {
+            throw new InvalidArgumentException('Answers must be up to 65,535 bytes.');
         }
 
         $collection = $this->getOwnedCollection($userId, $collectionId);
@@ -164,7 +172,7 @@ class LearningService {
 
     private function getUserSettings(string $userId): array {
         $query = $this->db->getQueryBuilder();
-        $row = $query->select('start_with_new', 'include_final_box')
+        $row = $query->select('start_with_new', 'include_final_box', 'answer_delay_seconds', 'question_time_limit_seconds')
             ->from('vocabulary_user_settings')
             ->where($query->expr()->eq('user_id', $query->createNamedParameter($userId)))
             ->executeQuery()
@@ -177,6 +185,8 @@ class LearningService {
         return [
             'startWithNew' => (bool)$row['start_with_new'],
             'includeFinalBox' => (bool)$row['include_final_box'],
+            'answerDelaySeconds' => (int)($row['answer_delay_seconds'] ?? self::DEFAULT_SETTINGS['answerDelaySeconds']),
+            'questionTimeLimitSeconds' => (int)($row['question_time_limit_seconds'] ?? self::DEFAULT_SETTINGS['questionTimeLimitSeconds']),
         ];
     }
 
@@ -196,6 +206,8 @@ class LearningService {
                     'user_id' => $query->createNamedParameter($userId),
                     'start_with_new' => $query->createNamedParameter((int)$settings['startWithNew'], IQueryBuilder::PARAM_INT),
                     'include_final_box' => $query->createNamedParameter((int)$settings['includeFinalBox'], IQueryBuilder::PARAM_INT),
+                    'answer_delay_seconds' => $query->createNamedParameter($settings['answerDelaySeconds'], IQueryBuilder::PARAM_INT),
+                    'question_time_limit_seconds' => $query->createNamedParameter($settings['questionTimeLimitSeconds'], IQueryBuilder::PARAM_INT),
                     'return_by_mistake' => $query->createNamedParameter(0, IQueryBuilder::PARAM_INT),
                     'created_at' => $query->createNamedParameter($now),
                     'updated_at' => $query->createNamedParameter($now),
@@ -208,6 +220,8 @@ class LearningService {
         $query->update('vocabulary_user_settings')
             ->set('start_with_new', $query->createNamedParameter((int)$settings['startWithNew'], IQueryBuilder::PARAM_INT))
             ->set('include_final_box', $query->createNamedParameter((int)$settings['includeFinalBox'], IQueryBuilder::PARAM_INT))
+            ->set('answer_delay_seconds', $query->createNamedParameter($settings['answerDelaySeconds'], IQueryBuilder::PARAM_INT))
+            ->set('question_time_limit_seconds', $query->createNamedParameter($settings['questionTimeLimitSeconds'], IQueryBuilder::PARAM_INT))
             ->set('updated_at', $query->createNamedParameter($now))
             ->where($query->expr()->eq('user_id', $query->createNamedParameter($userId)))
             ->executeStatement();
@@ -467,12 +481,28 @@ class LearningService {
 
         $startWithNew = $this->parseBoolean($data['startWithNew'] ?? self::DEFAULT_SETTINGS['startWithNew']);
         $includeFinalBox = $this->parseBoolean($data['includeFinalBox'] ?? self::DEFAULT_SETTINGS['includeFinalBox']);
+        $answerDelaySeconds = filter_var(
+            $data['answerDelaySeconds'] ?? self::DEFAULT_SETTINGS['answerDelaySeconds'],
+            FILTER_VALIDATE_INT
+        );
+        if ($answerDelaySeconds === false || $answerDelaySeconds < 1 || $answerDelaySeconds > 30) {
+            throw new InvalidArgumentException('Choose an answer delay from 1 to 30 seconds.');
+        }
+        $questionTimeLimitSeconds = filter_var(
+            $data['questionTimeLimitSeconds'] ?? self::DEFAULT_SETTINGS['questionTimeLimitSeconds'],
+            FILTER_VALIDATE_INT
+        );
+        if ($questionTimeLimitSeconds === false || $questionTimeLimitSeconds < 0 || $questionTimeLimitSeconds > 300) {
+            throw new InvalidArgumentException('Choose no response limit or a time limit from 1 to 300 seconds.');
+        }
         $config = [
             'direction' => $direction,
             'mode' => $mode,
             'selection' => $selection,
             'startWithNew' => $startWithNew,
             'includeFinalBox' => $includeFinalBox,
+            'answerDelaySeconds' => $answerDelaySeconds,
+            'questionTimeLimitSeconds' => $questionTimeLimitSeconds,
         ];
 
         if ($selection === 'box') {

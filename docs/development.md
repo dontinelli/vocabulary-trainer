@@ -75,7 +75,7 @@ The installable app is in [`apps/nextcloud/vocabulary_trainer`](../apps/nextclou
 - `lib/Migration/` — versioned database schema migrations
 - `templates/`, `js/`, and `css/` — user interface
 
-The initial migration creates the collections, entries, progress, and user-settings tables. It does not seed user data or alter schema during requests. Apply schema changes through versioned migrations.
+The initial migration creates the collections, entries, progress, and user-settings tables. Later migrations add settings such as the configurable answer-display delay. Migrations do not seed user data or alter schema during requests.
 
 ## API reference
 
@@ -113,7 +113,7 @@ Entry operations verify ownership of the source collection and, for moves, the d
 | POST | `/collections/{collectionId}/study/session` | Start a session from a selection and mode |
 | POST | `/collections/{collectionId}/study/entries/{entryId}/answer` | Check an answer and update progress |
 
-Learning progress is per user, word pair, and translation direction. Typed answers are case-insensitive and ignore leading/trailing and repeated whitespace. Multiple-choice and mixed modes require more than 10 matching pairs; choices are drawn from the collection in the answer language. Mixed mode randomly chooses a question type for each pair.
+Learning progress is per user, word pair, and translation direction. Typed answers are case-insensitive and ignore leading/trailing and repeated whitespace. Multiple-choice and mixed modes require more than 10 matching pairs; choices are drawn from the collection in the answer language. Mixed mode randomly chooses a question type for each pair. The user's answer-display delay is configurable from 1 to 30 seconds (default 5), after which the next question is shown automatically. An optional response time limit is configurable from 1 to 300 seconds; zero disables it. The pin control pauses and resumes whichever timer is active. When a question is submitted without an answer (including on timeout), it is recorded as incorrect; a non-empty answer is checked normally. Clicking outside interactive answer controls on the study card submits the current answer early or advances from feedback.
 
 Automatic sessions include new pairs and due reviews. The user's `start_with_new` preference puts new pairs first; otherwise the order is mixed. Correct answers advance one box; incorrect answers reset to box 1. Review intervals are 1, 3, 7, 15, 30, 60, 120, 240, and 480 days for boxes 2–10. The collection's final box is excluded from automatic sessions unless `include_final_box` is enabled. If enabled but no due timestamp exists, its due date is calculated from the last answer.
 

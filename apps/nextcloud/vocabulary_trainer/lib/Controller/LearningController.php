@@ -56,6 +56,8 @@ class LearningController extends Controller {
                 'days' => $this->request->getParam('days'),
                 'startWithNew' => $this->request->getParam('startWithNew'),
                 'includeFinalBox' => $this->request->getParam('includeFinalBox'),
+                'answerDelaySeconds' => $this->request->getParam('answerDelaySeconds'),
+                'questionTimeLimitSeconds' => $this->request->getParam('questionTimeLimitSeconds'),
             ]);
         } catch (InvalidArgumentException $exception) {
             return $this->badRequest($exception);
