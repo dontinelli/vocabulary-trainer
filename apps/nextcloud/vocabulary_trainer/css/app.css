@@ -306,6 +306,40 @@
     display: none;
 }
 
+.vt-card-language-row {
+    align-items: flex-start;
+}
+
+.vt-card-progress {
+    flex: 0 1 140px;
+    min-width: 100px;
+}
+
+.vt-card-progress-text {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--vt-muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.vt-card-progress-text strong {
+    color: var(--vt-text);
+}
+
+.vt-card-progress progress {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin-top: 6px;
+    accent-color: var(--vt-primary);
+}
+
+.vt-card-progress progress[hidden] {
+    display: none;
+}
+
 .vt-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -547,7 +581,7 @@
 
 .vt-collection-stats {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
 }
 

@@ -965,6 +965,19 @@
         renderEntries();
     });
 
+    document.getElementById('box-distribution').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action="filter-box"]');
+        if (!button) {
+            return;
+        }
+        entryFilter = button.dataset.direction && button.dataset.box
+            ? { direction: button.dataset.direction, box: Number(button.dataset.box) }
+            : null;
+        selectedEntryIds.clear();
+        renderCollectionStatistics();
+        renderEntries();
+    });
+
     entryList.addEventListener('click', (event) => {
         const editButton = event.target.closest('[data-action="edit-entry"]');
         if (!editButton) {
