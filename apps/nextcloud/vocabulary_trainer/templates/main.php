@@ -173,14 +173,18 @@ $strings = [
                     <div class="vt-section-heading">
                         <div>
                             <h3 id="collection-dashboard-heading"><?php p($l->t('Collection overview')); ?></h3>
-                            <p><?php p($l->t('Accuracy combines both translation directions. Learning progress averages box advancement across both directions.')); ?></p>
+                            <p><?php p($l->t('Accuracy and learning progress combine both translation directions. Select a direction to view its box distribution.')); ?></p>
                         </div>
                     </div>
+                    <div class="vt-direction-toggle" id="direction-toggle" role="group" aria-label="<?php p($l->t('Translation direction')); ?>">
+                        <button class="vt-direction-button" type="button" data-direction="source_to_target" aria-pressed="true">
+                            <?php p($l->t('Source to target')); ?>
+                        </button>
+                        <button class="vt-direction-button" type="button" data-direction="target_to_source" aria-pressed="false">
+                            <?php p($l->t('Target to source')); ?>
+                        </button>
+                    </div>
                     <div class="vt-collection-stats">
-                        <div class="vt-stat-placeholder">
-                            <span><?php p($l->t('Word pairs')); ?></span>
-                            <strong id="collection-entry-count">—</strong>
-                        </div>
                         <div class="vt-stat-placeholder">
                             <span><?php p($l->t('Study boxes')); ?></span>
                             <strong id="collection-box-count">—</strong>
@@ -194,7 +198,7 @@ $strings = [
                             <strong id="collection-learning-progress">—</strong>
                         </div>
                     </div>
-                    <div class="vt-box-distribution" id="box-distribution" aria-label="<?php p($l->t('Filter word pairs by study box and direction')); ?>"></div>
+                    <div class="vt-box-distribution" id="box-distribution" aria-label="<?php p($l->t('Filter word pairs by study box')); ?>"></div>
                 </section>
                 <p class="vt-error-alert" id="entry-load-error" role="alert" aria-live="assertive" hidden></p>
                 <div class="vt-bulk-toolbar" id="bulk-toolbar">

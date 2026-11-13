@@ -547,7 +547,7 @@
 
 .vt-collection-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -558,24 +558,98 @@
 
 .vt-box-distribution {
     display: grid;
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    align-items: stretch;
+    gap: 10px;
     margin-top: 20px;
 }
 
-.vt-box-distribution-group h4 {
-    margin: 0 0 8px;
+.vt-direction-toggle {
+    display: inline-flex;
+    gap: 4px;
+    margin: 0 0 16px;
+    padding: 4px;
+    border-radius: 10px;
+    background: var(--vt-surface-muted);
 }
 
-.vt-box-distribution-buttons {
+.vt-direction-button {
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--vt-text);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+}
+
+.vt-direction-button[aria-pressed="true"] {
+    background: var(--vt-surface);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 14%);
+}
+
+.vt-direction-button:focus-visible,
+.vt-box-tile:focus-visible {
+    outline: 2px solid var(--vt-primary);
+    outline-offset: 2px;
+}
+
+.vt-box-tile {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    min-height: 96px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 4px;
+    overflow: hidden;
+    padding: 12px 14px;
+    border: 1px solid var(--vt-border);
+    border-radius: var(--border-radius-large, 8px);
+    background: linear-gradient(
+        to top,
+        var(--color-primary-light, #d9efff) 0%,
+        var(--color-primary-light, #d9efff) var(--box-fill-percent, 0%),
+        var(--vt-surface) var(--box-fill-percent, 0%),
+        var(--vt-surface) 100%
+    );
+    color: var(--vt-text);
+    cursor: pointer;
+    font: inherit;
+    text-align: start;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.vt-box-distribution .is-active {
+.vt-box-tile:hover,
+.vt-box-tile.is-active {
     border-color: var(--vt-primary);
-    background: var(--vt-primary);
-    color: var(--vt-primary-text);
+    box-shadow: 0 1px 5px rgb(0 0 0 / 12%);
+}
+
+.vt-box-tile-label,
+.vt-box-tile-share {
+    position: relative;
+    z-index: 1;
+    color: var(--vt-muted);
+    font-size: 0.85rem;
+}
+
+.vt-box-tile-count {
+    position: relative;
+    z-index: 1;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+.vt-box-tile-share {
+    align-self: flex-end;
+    margin-top: -22px;
+}
+
+.vt-box-tile--all {
+    background: var(--vt-surface);
 }
 
 @media (max-width: 700px) {
