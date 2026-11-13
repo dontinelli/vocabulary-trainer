@@ -334,6 +334,72 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue(1, count($db->builders), 'No entry query is needed for an empty collection list.');
     });
 
+    $test('aggregates overall dashboard statistics across owned collections', static function (): void {
+        $db = new FakeDatabase();
+        $collections = new FakeQueryBuilder();
+        $collections->rows = [
+            ['id' => 5, 'box_count' => 5],
+            ['id' => 8, 'box_count' => 3],
+        ];
+        $entries = new FakeQueryBuilder();
+        $entries->rows = [
+            ['id' => 11, 'collection_id' => 5],
+            ['id' => 12, 'collection_id' => 8],
+        ];
+        $today = gmdate('Y-m-d') . ' 12:00:00';
+        $yesterday = gmdate('Y-m-d', time() - 86400) . ' 12:00:00';
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [
+            ['entry_id' => 11, 'box' => 5, 'answered' => 3, 'answered_correctly' => 2, 'last_answered_at' => $today],
+            ['entry_id' => 11, 'box' => 1, 'answered' => 1, 'answered_correctly' => 1, 'last_answered_at' => $today],
+            ['entry_id' => 12, 'box' => 2, 'answered' => 2, 'answered_correctly' => 1, 'last_answered_at' => $yesterday],
+        ];
+        $db->nextBuilders = [$collections, $entries, $progress];
+
+        $statistics = (new CollectionService($db))->getDashboardStatistics('alice');
+
+        assertSameValue([
+            'wordPairCount' => 2,
+            'learningProgressPercent' => 37.5,
+            'accuracyPercent' => 4 / 6 * 100,
+            'practicedTodayCount' => 1,
+        ], $statistics, 'Dashboard aggregates must include both directions and collections.');
+        assertSameValue('alice', $collections->parameters[':param0'], 'Collections must be scoped to the current user.');
+        assertSameValue([5, 8], $entries->parameters[':param0'], 'Entries must be scoped to owned collections.');
+        assertSameValue('alice', $progress->parameters[':param0'], 'Progress must be scoped to the current user.');
+        assertSameValue([11, 12], $progress->parameters[':param1'], 'Progress must be scoped to owned entries.');
+    });
+
+    $test('returns empty dashboard statistics for users without collections', static function (): void {
+        $db = new FakeDatabase();
+        $collections = new FakeQueryBuilder();
+        $db->nextBuilders[] = $collections;
+
+        assertSameValue([
+            'wordPairCount' => 0,
+            'learningProgressPercent' => null,
+            'accuracyPercent' => null,
+            'practicedTodayCount' => 0,
+        ], (new CollectionService($db))->getDashboardStatistics('alice'), 'Empty accounts must have zero counts and unavailable percentages.');
+        assertSameValue(1, count($db->builders), 'No additional queries are needed for an empty account.');
+    });
+
+    $test('returns empty dashboard statistics for collections without pairs', static function (): void {
+        $db = new FakeDatabase();
+        $collections = new FakeQueryBuilder();
+        $collections->rows = [['id' => 5, 'box_count' => 5]];
+        $entries = new FakeQueryBuilder();
+        $db->nextBuilders = [$collections, $entries];
+
+        assertSameValue([
+            'wordPairCount' => 0,
+            'learningProgressPercent' => null,
+            'accuracyPercent' => null,
+            'practicedTodayCount' => 0,
+        ], (new CollectionService($db))->getDashboardStatistics('alice'), 'Collections without pairs have no measurable percentages.');
+        assertSameValue(2, count($db->builders), 'Progress query should be skipped when no pairs exist.');
+    });
+
     $test('creates a normalized collection for the supplied owner', static function (): void {
         $db = new FakeDatabase();
         $service = new CollectionService($db);
@@ -646,6 +712,20 @@ namespace OCA\VocabularyTrainer\Tests {
         $response = $controller->index();
 
         assertSameValue(401, $response->getStatus(), 'An anonymous request must be rejected.');
+    });
+
+    $test('returns unauthorized dashboard statistics when the request has no signed-in user', static function (): void {
+        $db = new FakeDatabase();
+        $controller = new CollectionController(
+            'vocabulary_trainer',
+            new FakeRequest(),
+            new CollectionService($db),
+            new FakeUserSession(null),
+        );
+        $response = $controller->dashboardStatistics();
+
+        assertSameValue(401, $response->getStatus(), 'Anonymous dashboard requests must be rejected.');
+        assertSameValue([], $db->builders, 'Anonymous dashboard requests must not access the database.');
     });
 
     $test('creates collections for the session user, not a request-supplied user', static function (): void {

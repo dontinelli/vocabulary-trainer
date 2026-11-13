@@ -34,6 +34,16 @@ class CollectionController extends Controller {
     }
 
     #[NoAdminRequired]
+    public function dashboardStatistics(): DataResponse {
+        $userId = $this->getUserId();
+        if ($userId === null) {
+            return new DataResponse(['error' => 'Authentication required.'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        return new DataResponse($this->collectionService->getDashboardStatistics($userId));
+    }
+
+    #[NoAdminRequired]
     public function create(): DataResponse {
         $userId = $this->getUserId();
         if ($userId === null) {

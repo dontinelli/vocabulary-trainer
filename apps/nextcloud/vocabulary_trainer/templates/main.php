@@ -42,6 +42,8 @@ $strings = [
     'noEntries' => $l->t('No word pairs yet. Add one to get started.'),
     'noPairsInBox' => $l->t('No word pairs are in this box.'),
     'wordPairs' => $l->t('Word pairs'),
+    'practicedPairsToday' => $l->t('Pairs practiced today'),
+    'dashboardLoadFailed' => $l->t('Could not load overall statistics.'),
     'entriesLoadFailed' => $l->t('Could not load word pairs.'),
     'requestFailed' => $l->t('The request could not be completed.'),
     'startLearning' => $l->t('Start learning'),
@@ -109,24 +111,26 @@ $strings = [
                 <div class="vt-section-heading">
                     <div>
                         <h2 id="progress-heading"><?php p($l->t('Your progress')); ?></h2>
-                        <p><?php p($l->t('A summary of your recent learning.')); ?></p>
+                        <p><?php p($l->t('An overview across all your collections.')); ?></p>
                     </div>
                 </div>
-                <div class="vt-dashboard" role="region" aria-label="<?php p($l->t('Progress dashboard placeholder')); ?>">
-                    <div class="vt-progress-placeholder">
-                        <span class="vt-placeholder-mark" aria-hidden="true">↗</span>
-                        <div>
-                            <h3><?php p($l->t('Your learning overview will appear here')); ?></h3>
-                            <p><?php p($l->t('Study some vocabulary to see your progress, review activity, and collection statistics.')); ?></p>
-                        </div>
+                <p class="vt-error-alert" id="dashboard-load-error" role="alert" aria-live="assertive" hidden></p>
+                <div class="vt-dashboard" role="region" aria-label="<?php p($l->t('Overall learning statistics')); ?>">
+                    <div class="vt-stat-placeholder">
+                        <span><?php p($l->t('Word pairs')); ?></span>
+                        <strong id="dashboard-word-pairs">—</strong>
                     </div>
                     <div class="vt-stat-placeholder">
-                        <span><?php p($l->t('Reviewed today')); ?></span>
-                        <strong>—</strong>
+                        <span><?php p($l->t('Learning progress')); ?></span>
+                        <strong id="dashboard-learning-progress">—</strong>
                     </div>
                     <div class="vt-stat-placeholder">
-                        <span><?php p($l->t('Learned words')); ?></span>
-                        <strong>—</strong>
+                        <span><?php p($l->t('Correct answers')); ?></span>
+                        <strong id="dashboard-accuracy">—</strong>
+                    </div>
+                    <div class="vt-stat-placeholder">
+                        <span><?php p($l->t('Pairs practiced today')); ?></span>
+                        <strong id="dashboard-practiced-today">—</strong>
                     </div>
                 </div>
             </section>

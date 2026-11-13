@@ -12,6 +12,7 @@
     const collectionsUrl = OC.generateUrl('/apps/vocabulary_trainer/collections');
     let collectionsLoaded = false;
     let collectionsLoadFailed = false;
+    let dashboardStatistics = null;
     let editingId = null;
     let removingId = null;
     let activeCollection = null;
@@ -29,6 +30,7 @@
     const form = document.getElementById('collection-form');
     const errorMessage = document.getElementById('collection-form-error');
     const loadError = document.getElementById('collection-load-error');
+    const dashboardLoadError = document.getElementById('dashboard-load-error');
     const removeError = document.getElementById('remove-error');
     const announcement = document.getElementById('collection-announcement');
     const removePrompt = document.getElementById('remove-prompt');
@@ -116,6 +118,7 @@
             loadError.hidden = true;
             collectionsLoaded = true;
             render();
+            await loadDashboardStatistics();
             if (activeCollection) {
                 renderMoveTargets();
             }
@@ -127,6 +130,44 @@
             collectionsLoaded = true;
             render();
             return false;
+        }
+    }
+
+    function renderDashboardStatistics() {
+        document.getElementById('dashboard-word-pairs').textContent =
+            dashboardStatistics ? String(dashboardStatistics.wordPairCount) : '—';
+        document.getElementById('dashboard-learning-progress').textContent =
+            dashboardStatistics?.learningProgressPercent === null || !dashboardStatistics
+                ? '—'
+                : `${Math.round(dashboardStatistics.learningProgressPercent)}%`;
+        document.getElementById('dashboard-accuracy').textContent =
+            dashboardStatistics?.accuracyPercent === null || !dashboardStatistics
+                ? '—'
+                : `${Math.round(dashboardStatistics.accuracyPercent)}%`;
+        document.getElementById('dashboard-practiced-today').textContent =
+            dashboardStatistics ? String(dashboardStatistics.practicedTodayCount) : '—';
+    }
+
+    async function loadDashboardStatistics() {
+        try {
+            const result = await request('/dashboard/statistics', 'GET');
+            const isPercent = (value) => value === null ||
+                (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100);
+            if (!result || typeof result !== 'object' ||
+                typeof result.wordPairCount !== 'number' ||
+                typeof result.practicedTodayCount !== 'number' ||
+                !isPercent(result.learningProgressPercent) ||
+                !isPercent(result.accuracyPercent)) {
+                throw new Error(strings.invalidResponse.replace('{status}', 200));
+            }
+            dashboardStatistics = result;
+            dashboardLoadError.hidden = true;
+            renderDashboardStatistics();
+        } catch (error) {
+            dashboardStatistics = null;
+            dashboardLoadError.textContent = `${strings.dashboardLoadFailed} ${error.message}`;
+            dashboardLoadError.hidden = false;
+            renderDashboardStatistics();
         }
     }
 

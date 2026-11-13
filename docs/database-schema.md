@@ -101,6 +101,7 @@ The Nextcloud UI uses these authenticated app routes:
 | Method | Route | Behavior |
 | --- | --- | --- |
 | GET | `/apps/vocabulary_trainer/collections` | Return only the current user's collections, including each collection's entry count |
+| GET | `/apps/vocabulary_trainer/collections/dashboard/statistics` | Return overall word-pair count, answer accuracy, learning progress, and unique pairs practiced today |
 | POST | `/apps/vocabulary_trainer/collections` | Validate and create a collection owned by the current user |
 | PUT | `/apps/vocabulary_trainer/collections/{id}` | Validate and update a collection owned by the current user |
 | DELETE | `/apps/vocabulary_trainer/collections/{id}` | Delete a collection owned by the current user |
@@ -109,3 +110,5 @@ The Nextcloud UI uses these authenticated app routes:
 Write routes retain Nextcloud's request-token/CSRF protection. Ownership is always derived from the authenticated user session, not a request parameter. Updates and deletes are scoped by both collection ID and owner; a missing or other user's collection returns not found. Collection names are required and limited to 255 characters, language tags are validated and must differ, and `box_count` must be between 2 and 10.
 
 Collection accuracy combines `answered` and `answered_correctly` across both directions and is unavailable until at least one answer is recorded. Learning progress averages each pair-direction's normalized box advancement, with box 1 at 0% and the final box at 100%; unstarted directions count as box 1. Box counts are shown separately for each direction, and selecting a direction and box filters the displayed word pairs accordingly.
+
+The main dashboard aggregates only the signed-in user's collections. Overall accuracy combines all recorded answers, and learning progress averages normalized advancement across both directions of every pair. "Pairs practiced today" counts unique pairs with an answer recorded since midnight UTC; the progress table stores only each direction's latest answer time, not a complete answer history.

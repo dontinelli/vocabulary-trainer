@@ -86,11 +86,14 @@ App routes use the `/apps/vocabulary_trainer` prefix. The signed-in Nextcloud se
 | Method | Route | Action |
 | --- | --- | --- |
 | GET | `/collections` | List the signed-in user's collections, entry counts, and normalized learning progress |
+| GET | `/collections/dashboard/statistics` | Return overall word-pair count, accuracy, learning progress, and pairs practiced today |
 | POST | `/collections` | Create a collection |
 | PUT | `/collections/{id}` | Update a collection |
 | DELETE | `/collections/{id}` | Delete an owned collection and its dependent entries |
 
 Collection create/update validates names, language tags, distinct source and target languages, and the 2–10 study-box range.
+
+Dashboard statistics aggregate only the signed-in user's collections. Learning progress includes both directions for every pair, with unstarted directions at box 1; answer accuracy combines all recorded answers. Pairs practiced today count unique pairs with an answer recorded since midnight UTC.
 
 ### Word pairs
 

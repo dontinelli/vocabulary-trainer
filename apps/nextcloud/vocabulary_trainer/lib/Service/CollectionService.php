@@ -91,6 +91,92 @@ class CollectionService {
         ], $rows);
     }
 
+    public function getDashboardStatistics(string $userId): array {
+        $collectionsQuery = $this->db->getQueryBuilder();
+        $collectionRows = $collectionsQuery
+            ->select('id', 'box_count')
+            ->from('vocabulary_collections')
+            ->where($collectionsQuery->expr()->eq('user_id', $collectionsQuery->createNamedParameter($userId)))
+            ->executeQuery()
+            ->fetchAllAssociative();
+        if ($collectionRows === []) {
+            return [
+                'wordPairCount' => 0,
+                'learningProgressPercent' => null,
+                'accuracyPercent' => null,
+                'practicedTodayCount' => 0,
+            ];
+        }
+
+        $boxCountsByCollection = [];
+        foreach ($collectionRows as $row) {
+            $boxCountsByCollection[(int)$row['id']] = (int)$row['box_count'];
+        }
+        $collectionIds = array_keys($boxCountsByCollection);
+
+        $entriesQuery = $this->db->getQueryBuilder();
+        $entryRows = $entriesQuery
+            ->select('id', 'collection_id')
+            ->from('vocabulary_entries')
+            ->where($entriesQuery->expr()->in(
+                'collection_id',
+                $entriesQuery->createNamedParameter($collectionIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeQuery()
+            ->fetchAllAssociative();
+        if ($entryRows === []) {
+            return [
+                'wordPairCount' => 0,
+                'learningProgressPercent' => null,
+                'accuracyPercent' => null,
+                'practicedTodayCount' => 0,
+            ];
+        }
+
+        $entryCollections = [];
+        foreach ($entryRows as $row) {
+            $entryCollections[(int)$row['id']] = (int)$row['collection_id'];
+        }
+        $entryIds = array_keys($entryCollections);
+        $progressQuery = $this->db->getQueryBuilder();
+        $progressRows = $progressQuery
+            ->select('entry_id', 'box', 'answered', 'answered_correctly', 'last_answered_at')
+            ->from('vocabulary_progress')
+            ->where($progressQuery->expr()->eq('user_id', $progressQuery->createNamedParameter($userId)))
+            ->andWhere($progressQuery->expr()->in(
+                'entry_id',
+                $progressQuery->createNamedParameter($entryIds, IQueryBuilder::PARAM_INT_ARRAY)
+            ))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $totalAnswered = 0;
+        $totalCorrect = 0;
+        $progressScore = 0.0;
+        $practicedToday = [];
+        $todayUtc = gmdate('Y-m-d');
+        foreach ($progressRows as $row) {
+            $entryId = (int)$row['entry_id'];
+            $collectionId = $entryCollections[$entryId];
+            $boxCount = $boxCountsByCollection[$collectionId];
+            $box = min($boxCount, max(1, (int)$row['box']));
+            $progressScore += ($box - 1) / max(1, $boxCount - 1);
+            $totalAnswered += (int)$row['answered'];
+            $totalCorrect += (int)$row['answered_correctly'];
+            if (is_string($row['last_answered_at']) && str_starts_with($row['last_answered_at'], $todayUtc)) {
+                $practicedToday[$entryId] = true;
+            }
+        }
+
+        $totalDirections = count($entryIds) * 2;
+        return [
+            'wordPairCount' => count($entryIds),
+            'learningProgressPercent' => ($progressScore / $totalDirections) * 100,
+            'accuracyPercent' => $totalAnswered > 0 ? ($totalCorrect / $totalAnswered) * 100 : null,
+            'practicedTodayCount' => count($practicedToday),
+        ];
+    }
+
     public function createCollection(string $userId, array $data): void {
         $collection = $this->validateCollection($data);
         $now = gmdate('Y-m-d H:i:s');
