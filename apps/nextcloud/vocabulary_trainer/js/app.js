@@ -18,6 +18,7 @@
     let editingEntryId = null;
     let collectionStatistics = null;
     let entryFilter = null;
+    let selectedDirection = 'source_to_target';
     const entries = [];
     const selectedEntryIds = new Set();
 
@@ -225,7 +226,6 @@
         entryEmpty.hidden = visibleEntries.length > 0;
         document.getElementById('entry-empty-message').textContent =
             entries.length === 0 ? strings.noEntries : strings.noPairsInBox;
-        document.getElementById('collection-entry-count').textContent = String(entries.length);
         const selectedCount = visibleEntries.filter((entry) => selectedEntryIds.has(entry.id)).length;
         document.getElementById('selected-count').textContent =
             strings.selectedCount.replace('{count}', selectedCount);
@@ -266,6 +266,9 @@
     function renderCollectionStatistics() {
         const distribution = document.getElementById('box-distribution');
         distribution.replaceChildren();
+        document.querySelectorAll('#direction-toggle [data-direction]').forEach((button) => {
+            button.setAttribute('aria-pressed', String(button.dataset.direction === selectedDirection));
+        });
         if (!collectionStatistics) {
             document.getElementById('collection-box-count').textContent = '—';
             document.getElementById('collection-accuracy').textContent = '—';
@@ -283,36 +286,33 @@
                 ? '—'
                 : `${Math.round(collectionStatistics.learningProgressPercent)}%`;
 
-        const allPairs = makeElement('button', `vt-button${entryFilter ? '' : ' is-active'}`, strings.allPairs);
+        const allPairs = makeElement('button', `vt-box-tile vt-box-tile--all${entryFilter ? '' : ' is-active'}`);
         allPairs.type = 'button';
-        allPairs.dataset.action = 'filter-box';
+        allPairs.dataset.action = 'filter-all';
         allPairs.setAttribute('aria-pressed', String(entryFilter === null));
+        allPairs.append(
+            makeElement('span', 'vt-box-tile-label', strings.wordPairs),
+            makeElement('strong', 'vt-box-tile-count', String(entries.length)),
+        );
         distribution.append(allPairs);
 
-        [
-            ['source_to_target', strings.sourceToTarget],
-            ['target_to_source', strings.targetToSource],
-        ].forEach(([direction, label]) => {
-            const group = makeElement('div', 'vt-box-distribution-group');
-            group.append(makeElement('h4', '', label));
-            const buttons = makeElement('div', 'vt-box-distribution-buttons');
-            collectionStatistics.boxCounts[direction].forEach((count, index) => {
-                const box = index + 1;
-                const isActive = entryFilter?.direction === direction && entryFilter.box === box;
-                const button = makeElement(
-                    'button',
-                    `vt-button${isActive ? ' is-active' : ''}`,
-                    `${strings.boxNumber} ${box} (${count})`,
-                );
-                button.type = 'button';
-                button.dataset.action = 'filter-box';
-                button.dataset.direction = direction;
-                button.dataset.box = String(box);
-                button.setAttribute('aria-pressed', String(isActive));
-                buttons.append(button);
-            });
-            group.append(buttons);
-            distribution.append(group);
+        collectionStatistics.boxCounts[selectedDirection].forEach((count, index) => {
+            const box = index + 1;
+            const isActive = entryFilter?.direction === selectedDirection && entryFilter.box === box;
+            const percentage = entries.length > 0 ? (count / entries.length) * 100 : 0;
+            const button = makeElement('button', `vt-box-tile${isActive ? ' is-active' : ''}`);
+            button.type = 'button';
+            button.dataset.action = 'filter-box';
+            button.dataset.direction = selectedDirection;
+            button.dataset.box = String(box);
+            button.setAttribute('aria-pressed', String(isActive));
+            button.style.setProperty('--box-fill-percent', `${percentage}%`);
+            button.append(
+                makeElement('span', 'vt-box-tile-label', `${strings.boxNumber} ${box}`),
+                makeElement('strong', 'vt-box-tile-count', String(count)),
+                makeElement('span', 'vt-box-tile-share', `${Math.round(percentage)}%`),
+            );
+            distribution.append(button);
         });
     }
 
@@ -339,6 +339,7 @@
         activeCollection = collection;
         selectedEntryIds.clear();
         entryFilter = null;
+        selectedDirection = 'source_to_target';
         collectionStatistics = null;
         renderCollectionStatistics();
         studyView.hidden = true;
@@ -346,7 +347,6 @@
         document.getElementById('detail-heading').textContent = collection.name;
         document.getElementById('detail-languages').textContent =
             `${collection.sourceLanguage.toUpperCase()} → ${collection.targetLanguage.toUpperCase()}`;
-        document.getElementById('collection-entry-count').textContent = String(collection.entryCount);
         document.getElementById('collection-box-count').textContent = String(collection.boxCount);
         overview.hidden = true;
         detail.hidden = false;
@@ -934,6 +934,34 @@
                 : entries;
             visibleEntries.forEach((entry) => selectedEntryIds.add(entry.id));
         }
+        renderEntries();
+    });
+
+    document.getElementById('box-distribution').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-action="filter-box"], [data-action="filter-all"]');
+        if (!button) {
+            return;
+        }
+        entryFilter = button.dataset.action === 'filter-box'
+            ? { direction: button.dataset.direction, box: Number(button.dataset.box) }
+            : null;
+        selectedEntryIds.clear();
+        renderCollectionStatistics();
+        renderEntries();
+    });
+
+    document.getElementById('direction-toggle').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-direction]');
+        if (!button || button.dataset.direction === selectedDirection) {
+            return;
+        }
+
+        selectedDirection = button.dataset.direction;
+        if (entryFilter) {
+            entryFilter.direction = selectedDirection;
+        }
+        selectedEntryIds.clear();
+        renderCollectionStatistics();
         renderEntries();
     });
 
