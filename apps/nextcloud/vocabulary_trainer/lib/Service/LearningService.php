@@ -326,32 +326,52 @@ class LearningService {
         DateTimeImmutable $now,
     ): array {
         $selected = [];
+        $newEntries = [];
+        $dueEntries = [];
+        $notDueEntries = [];
         foreach ($entries as $entry) {
             $id = (int)$entry['id'];
             $state = $progress[$id] ?? null;
-            if ($this->matchesSelection($state, $config, $settings, $boxCount, $now)) {
+            if ($config['selection'] === 'automatic') {
+                if ($state === null) {
+                    $newEntries[] = $entry;
+                } elseif ($this->matchesSelection($state, $config, $settings, $boxCount, $now)) {
+                    $dueEntries[] = $entry;
+                } elseif ($settings['startWithNew']
+                    && $this->isEligibleAutomaticReview($state, $settings, $boxCount)) {
+                    $notDueEntries[] = $entry;
+                }
+            } elseif ($this->matchesSelection($state, $config, $settings, $boxCount, $now)) {
                 $selected[] = $entry;
             }
         }
 
         if ($config['selection'] === 'automatic') {
-            $newEntries = [];
-            $dueEntries = [];
-            foreach ($selected as $entry) {
-                if (!isset($progress[(int)$entry['id']])) {
-                    $newEntries[] = $entry;
-                } else {
-                    $dueEntries[] = $entry;
-                }
-            }
-            shuffle($newEntries);
-            shuffle($dueEntries);
             if ($settings['startWithNew']) {
+                shuffle($newEntries);
+                shuffle($dueEntries);
+                if ($dueEntries === []) {
+                    shuffle($notDueEntries);
+                    return array_merge($newEntries, $notDueEntries);
+                }
                 return array_merge($newEntries, $dueEntries);
             }
+            $selected = array_merge($newEntries, $dueEntries);
         }
         shuffle($selected);
         return $selected;
+    }
+
+    private function isEligibleAutomaticReview(?array $progress, array $settings, int $boxCount): bool {
+        if ($progress === null) {
+            return false;
+        }
+
+        $box = (int)$progress['box'];
+        if ($box < 1 || $box > $boxCount) {
+            throw new \RuntimeException('Stored word-pair progress has an invalid box.');
+        }
+        return $box !== $boxCount || $settings['includeFinalBox'];
     }
 
     private function matchesSelection(

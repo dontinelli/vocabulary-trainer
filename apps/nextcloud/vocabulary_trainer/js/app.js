@@ -924,6 +924,15 @@
     });
     studySetupForm.addEventListener('submit', beginStudy);
     studyAnswerForm.addEventListener('submit', submitStudyAnswer);
+    studyAnswerForm.addEventListener('keydown', (event) => {
+        if (event.target.matches('textarea[name="answer"]') &&
+            event.key === 'Enter' &&
+            !event.shiftKey &&
+            !event.isComposing) {
+            event.preventDefault();
+            studyAnswerForm.requestSubmit();
+        }
+    });
     studyAnswerForm.addEventListener('change', (event) => {
         if (event.target.matches('input[type="radio"]')) {
             void submitStudyAnswer(null, true);

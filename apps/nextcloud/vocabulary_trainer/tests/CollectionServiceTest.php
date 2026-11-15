@@ -859,6 +859,69 @@ namespace OCA\VocabularyTrainer\Tests {
         assertTrue(in_array(['update', 'vocabulary_user_settings'], $settingsUpdate->operations, true), 'Session preferences should be persisted.');
     });
 
+    $test('includes not-yet-due reviews after new pairs when no reviews are due', static function (): void {
+        $db = new FakeDatabase();
+        $collection = new FakeQueryBuilder();
+        $collection->rows = [['id' => '7', 'box_count' => '5']];
+        $entries = new FakeQueryBuilder();
+        for ($id = 11; $id <= 15; $id++) {
+            $entries->rows[] = [
+                'id' => (string)$id,
+                'source_term' => "word{$id}",
+                'target_term' => "term{$id}",
+            ];
+        }
+        $progress = new FakeQueryBuilder();
+        $progress->rows = [
+            [
+                'entry_id' => '13',
+                'box' => '2',
+                'answered' => '1',
+                'answered_correctly' => '1',
+                'last_answered_at' => '2026-11-14 10:00:00',
+                'next_ask_at' => '2099-01-01 00:00:00',
+            ],
+            [
+                'entry_id' => '14',
+                'box' => '3',
+                'answered' => '2',
+                'answered_correctly' => '2',
+                'last_answered_at' => '2026-11-14 10:00:00',
+                'next_ask_at' => '2099-01-01 00:00:00',
+            ],
+            [
+                'entry_id' => '15',
+                'box' => '5',
+                'answered' => '4',
+                'answered_correctly' => '4',
+                'last_answered_at' => '2026-11-14 10:00:00',
+                'next_ask_at' => '2099-01-01 00:00:00',
+            ],
+        ];
+        $settingsCheck = new FakeQueryBuilder();
+        $settingsCheck->firstValue = 'alice';
+        $settingsUpdate = new FakeQueryBuilder();
+        $db->nextBuilders = [$collection, $entries, $progress, $settingsCheck, $settingsUpdate];
+
+        $session = (new LearningService($db))->startSession('alice', 7, [
+            'direction' => 'source_to_target',
+            'mode' => 'typed',
+            'selection' => 'automatic',
+            'startWithNew' => '1',
+            'includeFinalBox' => '0',
+        ]);
+        $ids = array_column($session['questions'], 'entryId');
+
+        assertSameValue(4, $session['totalQuestions'], 'When no reviews are due, eligible not-yet-due reviews should supplement new pairs.');
+        $newPairIds = array_slice($ids, 0, 2);
+        $reviewIds = array_slice($ids, 2);
+        sort($newPairIds);
+        sort($reviewIds);
+        assertSameValue([11, 12], $newPairIds, 'New pairs must come before not-yet-due reviews.');
+        assertSameValue([13, 14], $reviewIds, 'Eligible not-yet-due reviews should fill the rest of the session.');
+        assertTrue(!in_array(15, $ids, true), 'The final box must remain excluded when the preference is disabled.');
+    });
+
     $test('inserts learning preferences as integer boolean values', static function (): void {
         $db = new FakeDatabase();
         $collection = new FakeQueryBuilder();
