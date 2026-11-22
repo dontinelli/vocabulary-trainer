@@ -25,6 +25,12 @@ Copy `.env.example` to `.env` before starting. The values in that file are for l
 
 The dev container provides PHP, Composer, and Node.js. Docker Compose starts Nextcloud and MariaDB. The app directory is mounted into Nextcloud's `custom_apps` directory.
 
+## Android client
+
+The Android app is a separate Kotlin/Jetpack Compose client in [`apps/android`](../apps/android/). Android Studio, the Android SDK, and the emulator run on the host; the existing devcontainer remains dedicated to Nextcloud development. See the [Android development guide](../apps/android/README.md) for SDK requirements and emulator networking.
+
+The Android client signs in through Nextcloud Login Flow v2 and uses the versioned JSON endpoint `GET /apps/vocabulary_trainer/api/v1/collections`. It caches collection summaries locally with Room. The app targets API 37 and supports API 28 and later.
+
 ### Without the Dev Container
 
 ```sh
@@ -127,7 +133,7 @@ Targeted sessions can select new pairs, one box, pairs whose lifetime error perc
 
 ## Product direction
 
-Vocabulary Trainer is being developed as a Nextcloud app first, with a possible Android client later. Keep the API and learning model suitable for that future client.
+Vocabulary Trainer is developed as a Nextcloud app with a separate Android client. Keep the versioned API and learning model stable for both clients.
 
 - Interface languages: English and German.
 - Vocabulary languages are user-defined per collection, stored as BCP 47 tags.
