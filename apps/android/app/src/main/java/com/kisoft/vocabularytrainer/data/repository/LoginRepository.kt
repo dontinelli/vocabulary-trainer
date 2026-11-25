@@ -1,5 +1,7 @@
 package com.kisoft.vocabularytrainer.data.repository
 
+import android.content.res.Resources
+import com.kisoft.vocabularytrainer.R
 import com.kisoft.vocabularytrainer.data.auth.AccountStore
 import com.kisoft.vocabularytrainer.data.auth.LoginCredentials
 import com.kisoft.vocabularytrainer.data.auth.LoginFlowApi
@@ -14,16 +16,17 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class LoginRepository(
-    private val accountStore: AccountStore
+    private val accountStore: AccountStore,
+    private val resources: Resources
 ) {
     suspend fun start(serverUrl: String): LoginStart {
         val server = normalizeServer(serverUrl)
         val response = createApi(server).start()
         if (!response.isSuccessful) {
-            throw java.io.IOException("Nextcloud returned HTTP ${response.code()} during sign-in.")
+            throw java.io.IOException(resources.getString(R.string.login_http_error, response.code()))
         }
         val login = response.body()
-            ?: throw java.io.IOException("Nextcloud returned an invalid Login Flow response.")
+            ?: throw java.io.IOException(resources.getString(R.string.invalid_login_response))
         requireSameOrigin(server, login.poll.endpoint)
         requireSameOrigin(server, login.login)
         return LoginStart(
@@ -39,10 +42,10 @@ class LoginRepository(
         val response = createApi(server).poll(pollEndpoint, mapOf("token" to pollToken))
         if (response.code() == 404) return null
         if (!response.isSuccessful) {
-            throw java.io.IOException("Nextcloud returned HTTP ${response.code()} during sign-in.")
+            throw java.io.IOException(resources.getString(R.string.login_http_error, response.code()))
         }
         val login = response.body()
-            ?: throw java.io.IOException("Nextcloud returned an invalid Login Flow response.")
+            ?: throw java.io.IOException(resources.getString(R.string.invalid_login_response))
         val credentials = LoginCredentials(
             server = normalizeServer(login.server),
             loginName = login.loginName,
@@ -75,13 +78,13 @@ class LoginRepository(
         val uri = try {
             URI(trimmed)
         } catch (error: URISyntaxException) {
-            throw IllegalArgumentException("Enter a valid Nextcloud server URL.", error)
+            throw IllegalArgumentException(resources.getString(R.string.invalid_server_url), error)
         }
         require(uri.scheme == "http" || uri.scheme == "https") {
-            "Server URL must start with http:// or https://."
+            resources.getString(R.string.server_url_scheme_error)
         }
         require(!uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null && uri.fragment == null) {
-            "Enter a valid Nextcloud server URL without credentials or query parameters."
+            resources.getString(R.string.server_url_credentials_error)
         }
         return uri.toASCIIString()
     }
@@ -91,13 +94,13 @@ class LoginRepository(
         val endpointUri = try {
             URI(endpoint)
         } catch (error: URISyntaxException) {
-            throw IllegalArgumentException("Nextcloud returned an invalid Login Flow URL.", error)
+            throw IllegalArgumentException(resources.getString(R.string.invalid_login_url), error)
         }
         val sameOrigin = serverUri.scheme.equals(endpointUri.scheme, ignoreCase = true) &&
             serverUri.host.equals(endpointUri.host, ignoreCase = true) &&
             effectivePort(serverUri) == effectivePort(endpointUri)
         require(sameOrigin && endpointUri.userInfo == null) {
-            "Nextcloud returned a Login Flow URL on a different server."
+            resources.getString(R.string.different_login_server)
         }
     }
 

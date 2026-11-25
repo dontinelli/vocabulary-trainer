@@ -6,7 +6,7 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
 
 ## User-facing language policy
 
-- UI language: English and German
+- UI languages: English, German, French, and Italian
 - Vocabulary languages: user-defined per collection
 - storage format for vocabulary languages: BCP 47 tags such as `en`, `de`, `fr`, `es`, `ja`, `zh-Hans`, etc.
 

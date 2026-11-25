@@ -46,6 +46,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -77,8 +79,9 @@ class MainActivity : ComponentActivity() {
             "vocabulary-trainer"
         ).addMigrations(VocabularyDatabase.MIGRATION_1_2).build()
         MainViewModel.Factory(
-            LoginRepository(AccountStore(applicationContext)),
-            CollectionRepository(database.collectionDao())
+            LoginRepository(AccountStore(applicationContext), applicationContext.resources),
+            CollectionRepository(database.collectionDao(), applicationContext.resources),
+            applicationContext.resources
         )
     }
 
@@ -115,7 +118,7 @@ fun AppScreen(onOpenLogin: (String) -> Unit, viewModel: MainViewModel) {
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            state.account?.let { Text("Signed in as ${it.loginName}") }
+            state.account?.let { Text(stringResource(R.string.signed_in_as, it.loginName)) }
             state.message?.let { Text(it) }
             if (state.busy) CircularProgressIndicator()
 
@@ -170,28 +173,28 @@ private fun LoginScreen(
     onOpenLogin: (String) -> Unit
 ) {
     var serverUrl by remember(state.serverUrl) { mutableStateOf(state.serverUrl) }
-    Text("Connect to Nextcloud")
+    Text(stringResource(R.string.connect_nextcloud))
     OutlinedTextField(
         value = serverUrl,
         onValueChange = { serverUrl = it },
         modifier = Modifier.fillMaxWidth(),
-        label = { Text("Server URL") },
+        label = { Text(stringResource(R.string.server_url)) },
         singleLine = true
     )
     Button(
         onClick = { viewModel.startLogin(serverUrl) },
         enabled = !state.busy,
         modifier = Modifier.fillMaxWidth()
-    ) { Text("Sign in") }
+    ) { Text(stringResource(R.string.sign_in)) }
     state.pendingLogin?.let { pending ->
         Button(onClick = { onOpenLogin(pending.loginUrl) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Open Nextcloud sign-in")
+            Text(stringResource(R.string.open_nextcloud_sign_in))
         }
         Button(
             onClick = viewModel::completeLogin,
             enabled = !state.busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("I completed sign-in") }
+        ) { Text(stringResource(R.string.completed_sign_in)) }
     }
 }
 
@@ -211,21 +214,23 @@ private fun ColumnScope.DashboardScreen(
     var editCollection by remember { mutableStateOf<CollectionEntity?>(null) }
     var deleteCollection by remember { mutableStateOf<CollectionEntity?>(null) }
 
-    Text("Vocabulary Trainer")
+    Text(stringResource(R.string.app_title))
     statistics?.let {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("${it.wordPairCount} word pairs")
-                Text("Learning progress: ${it.learningProgressPercent.percentText()}")
-                Text("Answer accuracy: ${it.accuracyPercent.percentText()}")
-                Text("Practiced today: ${it.practicedTodayCount}")
+                Text(pluralStringResource(R.plurals.word_pairs_count, it.wordPairCount, it.wordPairCount))
+                Text(stringResource(R.string.learning_progress, it.learningProgressPercent.percentText()))
+                Text(stringResource(R.string.answer_accuracy, it.accuracyPercent.percentText()))
+                Text(stringResource(R.string.practiced_today, it.practicedTodayCount))
             }
         }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = { showCreate = true }, enabled = !state.busy) { Text("New collection") }
-        OutlinedButton(onClick = onRefresh, enabled = !state.busy) { Text("Refresh") }
-        OutlinedButton(onClick = onSignOut, enabled = !state.busy) { Text("Sign out") }
+        Button(onClick = { showCreate = true }, enabled = !state.busy) {
+            Text(stringResource(R.string.new_collection))
+        }
+        OutlinedButton(onClick = onRefresh, enabled = !state.busy) { Text(stringResource(R.string.refresh)) }
+        OutlinedButton(onClick = onSignOut, enabled = !state.busy) { Text(stringResource(R.string.sign_out)) }
     }
     LazyColumn(
         modifier = Modifier.weight(1f),
@@ -239,12 +244,23 @@ private fun ColumnScope.DashboardScreen(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(collection.name)
-                        Text("${collection.sourceLanguage} → ${collection.targetLanguage}")
-                        Text("${collection.entryCount} pairs · ${collection.learningProgressPercent.percentText()} progress")
+                        Text(stringResource(R.string.collection_languages, collection.sourceLanguage, collection.targetLanguage))
+                        Text(
+                            pluralStringResource(
+                                R.plurals.collection_pair_progress,
+                                collection.entryCount,
+                                collection.entryCount,
+                                collection.learningProgressPercent.percentText()
+                            )
+                        )
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { editCollection = collection }, enabled = !state.busy) { Text("Edit") }
-                        TextButton(onClick = { deleteCollection = collection }, enabled = !state.busy) { Text("Delete") }
+                        TextButton(onClick = { editCollection = collection }, enabled = !state.busy) {
+                            Text(stringResource(R.string.edit))
+                        }
+                        TextButton(onClick = { deleteCollection = collection }, enabled = !state.busy) {
+                            Text(stringResource(R.string.delete))
+                        }
                     }
                 }
             }
@@ -265,14 +281,16 @@ private fun ColumnScope.DashboardScreen(
     deleteCollection?.let { collection ->
         AlertDialog(
             onDismissRequest = { deleteCollection = null },
-            title = { Text("Delete ${collection.name}?") },
-            text = { Text("This also deletes its word pairs and learning progress.") },
+            title = { Text(stringResource(R.string.delete_collection_title, collection.name)) },
+            text = { Text(stringResource(R.string.delete_collection_message)) },
             confirmButton = {
                 TextButton(onClick = { onDeleteCollection(collection.id); deleteCollection = null }) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
-            dismissButton = { TextButton(onClick = { deleteCollection = null }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { deleteCollection = null }) { Text(stringResource(R.string.cancel)) }
+            }
         )
     }
 }
@@ -289,14 +307,34 @@ private fun CollectionDialog(
     var boxes by remember(collection?.id) { mutableStateOf((collection?.boxCount ?: 5).toString()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (collection == null) "New collection" else "Edit collection") },
+        title = {
+            Text(stringResource(if (collection == null) R.string.new_collection else R.string.edit_collection))
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
-                OutlinedTextField(source, { source = it }, label = { Text("Source language tag (e.g. en)") }, singleLine = true)
-                OutlinedTextField(target, { target = it }, label = { Text("Target language tag (e.g. de)") }, singleLine = true)
                 OutlinedTextField(
-                    boxes, { boxes = it }, label = { Text("Study boxes (2–10)") }, singleLine = true,
+                    name,
+                    { name = it },
+                    label = { Text(stringResource(R.string.collection_name)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    source,
+                    { source = it },
+                    label = { Text(stringResource(R.string.source_language_tag)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    target,
+                    { target = it },
+                    label = { Text(stringResource(R.string.target_language_tag)) },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    boxes,
+                    { boxes = it },
+                    label = { Text(stringResource(R.string.study_boxes_range)) },
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
@@ -306,9 +344,9 @@ private fun CollectionDialog(
                 onClick = {
                     onSave(CollectionWriteRequest(name.trim(), source.trim(), target.trim(), boxes.toIntOrNull() ?: 0))
                 }
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -340,10 +378,24 @@ private fun ColumnScope.CollectionScreen(
     var confirmBulkDelete by remember(collection.id) { mutableStateOf(false) }
     val visibleEntries = filterEntriesByBox(entries, entryProgressJson, selectedDirection, selectedBox)
 
-    TextButton(onClick = onBack) { Text("← Collections") }
+    TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_collections)) }
     Text(collection.name)
-    Text("${collection.sourceLanguage} → ${collection.targetLanguage} · ${entries.size} pairs")
-    Text("Learning progress: ${progress.percentText()} · Accuracy: ${accuracy.percentText()}")
+    Text(
+        pluralStringResource(
+            R.plurals.collection_details,
+            entries.size,
+            collection.sourceLanguage,
+            collection.targetLanguage,
+            entries.size
+        )
+    )
+    Text(
+        stringResource(
+            R.string.progress_and_accuracy,
+            stringResource(R.string.learning_progress, progress.percentText()),
+            stringResource(R.string.answer_accuracy, accuracy.percentText())
+        )
+    )
     BoxDistribution(
         statisticsJson = statisticsJson,
         totalEntries = entries.size,
@@ -359,19 +411,25 @@ private fun ColumnScope.CollectionScreen(
         }
     )
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onStudy, enabled = entries.isNotEmpty() && !busy) { Text("Study") }
-        OutlinedButton(onClick = { showNewEntry = true }, enabled = !busy) { Text("Add pair") }
+        Button(onClick = onStudy, enabled = entries.isNotEmpty() && !busy) {
+            Text(stringResource(R.string.study))
+        }
+        OutlinedButton(onClick = { showNewEntry = true }, enabled = !busy) {
+            Text(stringResource(R.string.add_pair))
+        }
     }
     if (selectedIds.isNotEmpty()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${selectedIds.size} selected")
-            TextButton(onClick = { showMove = true }, enabled = !busy) { Text("Move") }
-            TextButton(onClick = { confirmBulkDelete = true }, enabled = !busy) { Text("Delete") }
-            TextButton(onClick = { selectedIds = emptySet() }) { Text("Clear") }
+            Text(stringResource(R.string.selected_count, selectedIds.size))
+            TextButton(onClick = { showMove = true }, enabled = !busy) { Text(stringResource(R.string.move)) }
+            TextButton(onClick = { confirmBulkDelete = true }, enabled = !busy) {
+                Text(stringResource(R.string.delete))
+            }
+            TextButton(onClick = { selectedIds = emptySet() }) { Text(stringResource(R.string.clear)) }
         }
     }
     if (visibleEntries.isEmpty()) {
-        Text(if (entries.isEmpty()) "No word pairs yet" else "No word pairs in this box")
+        Text(stringResource(if (entries.isEmpty()) R.string.no_word_pairs_yet else R.string.no_word_pairs_in_box))
     }
     LazyColumn(
         modifier = Modifier.weight(1f),
@@ -396,8 +454,12 @@ private fun ColumnScope.CollectionScreen(
                         if (!entry.notes.isNullOrBlank()) Text(entry.notes)
                     }
                     Column {
-                        TextButton(onClick = { editEntry = entry }, enabled = !busy) { Text("Edit") }
-                        TextButton(onClick = { deleteEntry = entry }, enabled = !busy) { Text("Delete") }
+                        TextButton(onClick = { editEntry = entry }, enabled = !busy) {
+                            Text(stringResource(R.string.edit))
+                        }
+                        TextButton(onClick = { deleteEntry = entry }, enabled = !busy) {
+                            Text(stringResource(R.string.delete))
+                        }
                     }
                 }
             }
@@ -420,33 +482,45 @@ private fun ColumnScope.CollectionScreen(
     deleteEntry?.let { entry ->
         AlertDialog(
             onDismissRequest = { deleteEntry = null },
-            title = { Text("Delete word pair?") },
+            title = { Text(stringResource(R.string.delete_word_pair_title)) },
             text = { Text("${entry.sourceTerm} → ${entry.targetTerm}") },
-            confirmButton = { TextButton(onClick = { onDeleteEntry(entry.id); deleteEntry = null }) { Text("Delete") } },
-            dismissButton = { TextButton(onClick = { deleteEntry = null }) { Text("Cancel") } }
+            confirmButton = {
+                TextButton(onClick = { onDeleteEntry(entry.id); deleteEntry = null }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteEntry = null }) { Text(stringResource(R.string.cancel)) }
+            }
         )
     }
     if (confirmBulkDelete) {
         AlertDialog(
             onDismissRequest = { confirmBulkDelete = false },
-            title = { Text("Delete ${selectedIds.size} word pairs?") },
+            title = {
+                Text(pluralStringResource(R.plurals.delete_word_pairs_title, selectedIds.size, selectedIds.size))
+            },
             confirmButton = {
                 TextButton(onClick = {
                     onDeleteEntries(selectedIds.toList())
                     selectedIds = emptySet()
                     confirmBulkDelete = false
-                }) { Text("Delete") }
+                }) { Text(stringResource(R.string.delete)) }
             },
-            dismissButton = { TextButton(onClick = { confirmBulkDelete = false }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = { confirmBulkDelete = false }) { Text(stringResource(R.string.cancel)) }
+            }
         )
     }
     if (showMove) {
         val targets = collections.filter { it.id != collection.id }
         AlertDialog(
             onDismissRequest = { showMove = false },
-            title = { Text("Move ${selectedIds.size} word pairs") },
+            title = {
+                Text(pluralStringResource(R.plurals.move_word_pairs_title, selectedIds.size, selectedIds.size))
+            },
             text = {
-                if (targets.isEmpty()) Text("Create another collection first.")
+                if (targets.isEmpty()) Text(stringResource(R.string.create_another_collection))
                 else Column {
                     targets.forEach { target ->
                         TextButton(
@@ -459,7 +533,9 @@ private fun ColumnScope.CollectionScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showMove = false }) { Text("Close") } }
+            confirmButton = {
+                TextButton(onClick = { showMove = false }) { Text(stringResource(R.string.close)) }
+            }
         )
     }
 }
@@ -477,20 +553,20 @@ private fun EntryDialog(
     var notes by remember(entry?.id) { mutableStateOf(entry?.notes.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (entry == null) "Add word pair" else "Edit word pair") },
+        title = { Text(stringResource(if (entry == null) R.string.add_word_pair else R.string.edit_word_pair)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(source, { source = it }, label = { Text(sourceLanguage) }, singleLine = true)
                 OutlinedTextField(target, { target = it }, label = { Text(targetLanguage) }, singleLine = true)
-                OutlinedTextField(notes, { notes = it }, label = { Text("Notes (optional)") })
+                OutlinedTextField(notes, { notes = it }, label = { Text(stringResource(R.string.notes_optional)) })
             }
         },
         confirmButton = {
             TextButton(onClick = { onSave(EntryWriteRequest(source.trim(), target.trim(), notes.trim())) }) {
-                Text("Save")
+                Text(stringResource(R.string.save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -508,17 +584,17 @@ private fun BoxDistribution(
     val directionCounts = counts.getAsJsonArray(selectedDirection)
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Box distribution")
+            Text(stringResource(R.string.box_distribution))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(
                     selected = selectedDirection == "source_to_target",
                     onClick = { onDirectionSelected("source_to_target") },
-                    label = { Text("Source → target") }
+                    label = { Text(stringResource(R.string.source_to_target)) }
                 )
                 FilterChip(
                     selected = selectedDirection == "target_to_source",
                     onClick = { onDirectionSelected("target_to_source") },
-                    label = { Text("Target → source") }
+                    label = { Text(stringResource(R.string.target_to_source)) }
                 )
             }
             Row(
@@ -528,7 +604,7 @@ private fun BoxDistribution(
                 FilterChip(
                     selected = selectedBox == null,
                     onClick = { onBoxSelected(null) },
-                    label = { Text("All pairs · $totalEntries") }
+                    label = { Text(stringResource(R.string.all_pairs_count, totalEntries)) }
                 )
                 directionCounts.forEachIndexed { index, countValue ->
                     val box = index + 1
@@ -537,7 +613,7 @@ private fun BoxDistribution(
                     FilterChip(
                         selected = selectedBox == box,
                         onClick = { onBoxSelected(box) },
-                        label = { Text("Box $box · $count · $share%") }
+                        label = { Text(stringResource(R.string.box_count_share, box, count, share)) }
                     )
                 }
             }
@@ -576,27 +652,29 @@ private fun ColumnScope.StudySetupScreen(
         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TextButton(onClick = onBack) { Text("← Collection") }
-        Text("Study ${collection.name}")
-        OptionRow("Direction", direction, listOf("source_to_target", "target_to_source")) { direction = it }
-        OptionRow("Mode", mode, listOf("typed", "multiple-choice", "mixed")) { mode = it }
+        TextButton(onClick = onBack) { Text(stringResource(R.string.back_to_collection)) }
+        Text(stringResource(R.string.study_collection, collection.name))
+        OptionRow(stringResource(R.string.direction), direction, listOf("source_to_target", "target_to_source")) {
+            direction = it
+        }
+        OptionRow(stringResource(R.string.mode), mode, listOf("typed", "multiple-choice", "mixed")) { mode = it }
         OptionRow(
-            "Selection",
+            stringResource(R.string.selection),
             selection,
             listOf("automatic", "new", "box", "error-rate", "not-practiced")
         ) { selection = it }
         when (selection) {
-            "box" -> NumericInput("Box (1–${collection.boxCount})", box) { box = it }
-            "error-rate" -> NumericInput("Minimum error rate (%)", errorRate) { errorRate = it }
-            "not-practiced" -> NumericInput("Not practiced for (days)", days) { days = it }
+            "box" -> NumericInput(stringResource(R.string.box_number, collection.boxCount), box) { box = it }
+            "error-rate" -> NumericInput(stringResource(R.string.minimum_error_rate), errorRate) { errorRate = it }
+            "not-practiced" -> NumericInput(stringResource(R.string.not_practiced_days), days) { days = it }
         }
         if (selection == "automatic") {
-            ToggleRow("Start with new pairs", startWithNew) { startWithNew = it }
-            ToggleRow("Include final box", includeFinalBox) { includeFinalBox = it }
+            ToggleRow(stringResource(R.string.start_with_new_pairs), startWithNew) { startWithNew = it }
+            ToggleRow(stringResource(R.string.include_final_box), includeFinalBox) { includeFinalBox = it }
         }
-        NumericInput("Answer display delay (1–30 seconds)", answerDelay) { answerDelay = it }
-        NumericInput("Question time limit (0 disables)", timeLimit) { timeLimit = it }
-        Text("Multiple-choice and mixed modes need at least 11 matching pairs.")
+        NumericInput(stringResource(R.string.answer_display_delay), answerDelay) { answerDelay = it }
+        NumericInput(stringResource(R.string.question_time_limit), timeLimit) { timeLimit = it }
+        Text(stringResource(R.string.multiple_choice_minimum))
         Button(
             onClick = {
                 onStart(
@@ -616,7 +694,7 @@ private fun ColumnScope.StudySetupScreen(
             },
             enabled = !busy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Start studying") }
+        ) { Text(stringResource(R.string.start_studying)) }
     }
 }
 
@@ -626,8 +704,11 @@ private fun OptionRow(label: String, current: String, options: List<String>, onS
         Text(label)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             options.forEach { option ->
-                if (option == current) Button(onClick = {}) { Text(option.readableOption()) }
-                else OutlinedButton(onClick = { onSelected(option) }) { Text(option.readableOption()) }
+                if (option == current) Button(onClick = {}) {
+                    Text(stringResource(optionStringResource(option)))
+                } else OutlinedButton(onClick = { onSelected(option) }) {
+                    Text(stringResource(optionStringResource(option)))
+                }
             }
         }
     }
@@ -690,12 +771,14 @@ private fun ColumnScope.StudySessionScreen(
         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Question ${state.questionIndex + 1} of ${session.totalQuestions}")
+        Text(stringResource(R.string.question_of, state.questionIndex + 1, session.totalQuestions))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (totalSeconds > 0) {
-                OutlinedButton(onClick = { paused = !paused }) { Text(if (paused) "Resume" else "Pause") }
+                OutlinedButton(onClick = { paused = !paused }) {
+                    Text(stringResource(if (paused) R.string.resume else R.string.pause))
+                }
             }
-            TextButton(onClick = viewModel::finishStudy) { Text("Exit") }
+            TextButton(onClick = viewModel::finishStudy) { Text(stringResource(R.string.exit)) }
         }
         if (totalSeconds > 0) {
             LinearProgressIndicator(
@@ -708,9 +791,9 @@ private fun ColumnScope.StudySessionScreen(
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(question.prompt)
                 state.studyAnswer?.let { result ->
-                    Text(if (result.correct) "Correct" else "Not quite")
-                    if (!result.correct) Text("Answer: ${result.correctAnswer}")
-                    Text("Box ${result.box}")
+                    Text(stringResource(if (result.correct) R.string.correct else R.string.not_quite))
+                    if (!result.correct) Text(stringResource(R.string.answer_value, result.correctAnswer))
+                    Text(stringResource(R.string.box_value, result.box))
                 } ?: if (question.type == "multiple-choice") {
                     question.choices.forEach { choice ->
                         OutlinedButton(
@@ -723,7 +806,7 @@ private fun ColumnScope.StudySessionScreen(
                     OutlinedTextField(
                         value = answer,
                         onValueChange = { answer = it },
-                        label = { Text("Your answer") },
+                        label = { Text(stringResource(R.string.your_answer)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(
@@ -739,22 +822,35 @@ private fun ColumnScope.StudySessionScreen(
                         onClick = { viewModel.submitStudyAnswer(answer) },
                         enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("Check answer") }
+                    ) { Text(stringResource(R.string.check_answer)) }
                 }
             }
         }
         if (state.studyAnswer != null) {
-            TextButton(onClick = viewModel::advanceStudy) { Text("Next now") }
+            TextButton(onClick = viewModel::advanceStudy) { Text(stringResource(R.string.next_now)) }
         }
     }
 }
 
 @Composable
 private fun StudySummaryScreen(state: com.kisoft.vocabularytrainer.ui.MainState, viewModel: MainViewModel) {
-    Text("Study complete")
-    Text("${state.correctAnswers} of ${state.studySession?.totalQuestions ?: 0} correct")
-    Button(onClick = viewModel::finishStudy) { Text("Back to collection") }
+    Text(stringResource(R.string.study_complete))
+    Text(stringResource(R.string.correct_answers_count, state.correctAnswers, state.studySession?.totalQuestions ?: 0))
+    Button(onClick = viewModel::finishStudy) { Text(stringResource(R.string.back_to_collection)) }
 }
 
 private fun Double?.percentText(): String = this?.let { "%.0f%%".format(it) } ?: "—"
-private fun String.readableOption(): String = replace('-', ' ').replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+private fun optionStringResource(option: String): Int = when (option) {
+    "source_to_target" -> R.string.source_to_target
+    "target_to_source" -> R.string.target_to_source
+    "typed" -> R.string.typed
+    "multiple-choice" -> R.string.multiple_choice
+    "mixed" -> R.string.mixed
+    "automatic" -> R.string.automatic
+    "new" -> R.string.new_pairs
+    "box" -> R.string.pairs_in_box
+    "error-rate" -> R.string.error_rate
+    "not-practiced" -> R.string.not_practiced
+    else -> error("Unknown study option: $option")
+}

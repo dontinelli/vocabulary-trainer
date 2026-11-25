@@ -1,9 +1,11 @@
 package com.kisoft.vocabularytrainer.ui
 
+import android.content.res.Resources
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import com.kisoft.vocabularytrainer.R
 import com.kisoft.vocabularytrainer.data.auth.LoginCredentials
 import com.kisoft.vocabularytrainer.data.auth.LoginStart
 import com.kisoft.vocabularytrainer.data.db.CollectionEntity
@@ -38,7 +40,8 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(
     private val loginRepository: LoginRepository,
-    private val collectionRepository: CollectionRepository
+    private val collectionRepository: CollectionRepository,
+    private val resources: Resources
 ) : ViewModel() {
     private var cacheRefreshJob: Job? = null
     private val _state = MutableStateFlow(MainState())
@@ -82,7 +85,7 @@ class MainViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError("Could not start Nextcloud sign-in", error)
+                showError(R.string.login_start_error, error)
             }
         }
     }
@@ -97,27 +100,30 @@ class MainViewModel(
                     loginRepository.complete(serverUrl, start.pollToken, start.pollEndpoint)
                 }
                 if (account == null) {
-                    _state.value = _state.value.copy(busy = false, message = "Sign-in is not complete yet.")
+                    _state.value = _state.value.copy(
+                        busy = false,
+                        message = resources.getString(R.string.login_incomplete)
+                    )
                 } else {
                     _state.value = _state.value.copy(
                         account = account,
                         pendingLogin = null,
                         busy = false,
                         screen = AppScreen.DASHBOARD,
-                        message = "Connected."
+                        message = resources.getString(R.string.connected)
                     )
                     refreshCollections(account)
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError("Could not complete Nextcloud sign-in", error)
+                showError(R.string.login_complete_error, error)
             }
         }
     }
 
     fun refreshCollections(account: LoginCredentials) {
-        perform("Could not refresh data") { collectionRepository.refresh(account) }
+        perform(R.string.refresh_error) { collectionRepository.refresh(account) }
     }
 
     fun openCollection(id: Int) {
@@ -127,7 +133,7 @@ class MainViewModel(
             message = null
         )
         val account = _state.value.account ?: return
-        perform("Cached collection details shown") {
+        perform(R.string.cached_collection_details) {
             collectionRepository.refreshCollectionDetails(account, id)
         }
     }
@@ -148,21 +154,21 @@ class MainViewModel(
 
     fun createCollection(request: CollectionWriteRequest) {
         val account = _state.value.account ?: return
-        perform("Could not create collection") {
+        perform(R.string.create_collection_error) {
             collectionRepository.createCollection(account, request)
         }
     }
 
     fun updateCollection(id: Int, request: CollectionWriteRequest) {
         val account = _state.value.account ?: return
-        perform("Could not update collection") {
+        perform(R.string.update_collection_error) {
             collectionRepository.updateCollection(account, id, request)
         }
     }
 
     fun deleteCollection(id: Int) {
         val account = _state.value.account ?: return
-        perform("Could not delete collection") {
+        perform(R.string.delete_collection_error) {
             collectionRepository.deleteCollection(account, id)
             if (_state.value.selectedCollectionId == id) openDashboard()
         }
@@ -171,7 +177,7 @@ class MainViewModel(
     fun createEntry(request: EntryWriteRequest) {
         val account = _state.value.account ?: return
         val collectionId = _state.value.selectedCollectionId ?: return
-        perform("Could not add word pair") {
+        perform(R.string.add_word_pair_error) {
             collectionRepository.createEntry(account, collectionId, request)
         }
     }
@@ -179,7 +185,7 @@ class MainViewModel(
     fun updateEntry(entryId: Int, request: EntryWriteRequest) {
         val account = _state.value.account ?: return
         val collectionId = _state.value.selectedCollectionId ?: return
-        perform("Could not update word pair") {
+        perform(R.string.update_word_pair_error) {
             collectionRepository.updateEntry(account, collectionId, entryId, request)
         }
     }
@@ -187,7 +193,7 @@ class MainViewModel(
     fun deleteEntry(entryId: Int) {
         val account = _state.value.account ?: return
         val collectionId = _state.value.selectedCollectionId ?: return
-        perform("Could not delete word pair") {
+        perform(R.string.delete_word_pair_error) {
             collectionRepository.deleteEntry(account, collectionId, entryId)
         }
     }
@@ -195,7 +201,7 @@ class MainViewModel(
     fun deleteEntries(entryIds: List<Int>) {
         val account = _state.value.account ?: return
         val collectionId = _state.value.selectedCollectionId ?: return
-        perform("Could not delete selected word pairs") {
+        perform(R.string.delete_selected_word_pairs_error) {
             collectionRepository.deleteEntries(account, collectionId, entryIds)
         }
     }
@@ -203,7 +209,7 @@ class MainViewModel(
     fun moveEntries(targetCollectionId: Int, entryIds: List<Int>) {
         val account = _state.value.account ?: return
         val collectionId = _state.value.selectedCollectionId ?: return
-        perform("Could not move selected word pairs") {
+        perform(R.string.move_selected_word_pairs_error) {
             collectionRepository.moveEntries(account, collectionId, targetCollectionId, entryIds)
         }
     }
@@ -216,7 +222,7 @@ class MainViewModel(
             studySettings = null,
             message = null
         )
-        perform("Could not load study settings") {
+        perform(R.string.load_study_settings_error) {
             val settings = collectionRepository.getStudySettings(account, collectionId)
             _state.value = _state.value.copy(studySettings = settings)
         }
@@ -234,7 +240,7 @@ class MainViewModel(
                 if (session.questions.isEmpty()) {
                     _state.value = _state.value.copy(
                         busy = false,
-                        message = "No word pairs match this study selection."
+                        message = resources.getString(R.string.no_matching_word_pairs)
                     )
                 } else {
                     _state.value = _state.value.copy(
@@ -250,7 +256,7 @@ class MainViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError("Could not start study session", error)
+                showError(R.string.start_study_error, error)
             }
         }
     }
@@ -281,7 +287,7 @@ class MainViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError("Could not submit answer", error)
+                showError(R.string.submit_answer_error, error)
             }
         }
     }
@@ -323,7 +329,10 @@ class MainViewModel(
             } catch (error: Exception) {
                 _state.value = MainState(
                     serverUrl = serverUrl,
-                    message = "Could not clear local account data: ${error.message ?: error.javaClass.simpleName}"
+                    message = resources.getString(
+                        R.string.clear_account_error,
+                        error.message ?: error.javaClass.simpleName
+                    )
                 )
             }
         }
@@ -340,15 +349,17 @@ class MainViewModel(
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 _state.value = _state.value.copy(
-                    message = "Answer saved, but cached statistics could not be refreshed: " +
-                        (error.message ?: error.javaClass.simpleName)
+                    message = resources.getString(
+                        R.string.answer_saved_refresh_error,
+                        error.message ?: error.javaClass.simpleName
+                    )
                 )
             }
         }
     }
 
     private fun perform(
-        errorPrefix: String,
+        errorPrefix: Int,
         action: suspend () -> Unit
     ) {
         if (_state.value.busy) return
@@ -361,26 +372,27 @@ class MainViewModel(
                 if (error is CancellationException) throw error
                 _state.value = _state.value.copy(
                     busy = false,
-                    message = "$errorPrefix: ${error.message ?: error.javaClass.simpleName}"
+                    message = "${resources.getString(errorPrefix)}: ${error.message ?: error.javaClass.simpleName}"
                 )
             }
         }
     }
 
-    private fun showError(prefix: String, error: Exception) {
+    private fun showError(prefix: Int, error: Exception) {
         _state.value = _state.value.copy(
             busy = false,
-            message = "$prefix: ${error.message ?: error.javaClass.simpleName}"
+            message = "${resources.getString(prefix)}: ${error.message ?: error.javaClass.simpleName}"
         )
     }
 
     class Factory(
         private val loginRepository: LoginRepository,
-        private val collectionRepository: CollectionRepository
+        private val collectionRepository: CollectionRepository,
+        private val resources: Resources
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            MainViewModel(loginRepository, collectionRepository) as T
+            MainViewModel(loginRepository, collectionRepository, resources) as T
     }
 }
 

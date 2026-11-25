@@ -55,7 +55,7 @@ docker compose down
 In VS Code, run **Terminal: Run Task** and choose one of:
 
 - **Vocabulary Trainer: Run tests** — runs the dependency-free PHP service/API tests.
-- **Vocabulary Trainer: Validate app** — checks PHP and JavaScript syntax, translation JSON, and runs the PHP tests.
+- **Vocabulary Trainer: Validate app** — checks PHP and JavaScript syntax, translation catalogs, and runs the PHP tests.
 
 From the repository root, the same checks are:
 
@@ -63,7 +63,7 @@ From the repository root, the same checks are:
 php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php
 find apps/nextcloud/vocabulary_trainer -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 node --check apps/nextcloud/vocabulary_trainer/js/app.js
-php -r 'json_decode(file_get_contents("apps/nextcloud/vocabulary_trainer/l10n/de.json"), true, 512, JSON_THROW_ON_ERROR);'
+php apps/nextcloud/vocabulary_trainer/tests/ValidateTranslations.php
 ```
 
 GitHub Actions runs these checks on pushes and pull requests. The workflow can also be started manually from the Actions tab.
@@ -163,7 +163,7 @@ Targeted sessions can select new pairs, one box, pairs whose lifetime error perc
 
 Vocabulary Trainer is developed as a Nextcloud app with a separate Android client. Keep the versioned API and learning model stable for both clients.
 
-- Interface languages: English and German.
+- Interface languages: English, German, French, and Italian.
 - Vocabulary languages are user-defined per collection, stored as BCP 47 tags.
 - Collections are private by default, and all collection operations must be scoped to the authenticated user.
 - Study modes include multiple choice and typed answers in either translation direction; mixed mode selects randomly per question.

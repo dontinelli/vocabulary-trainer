@@ -2,6 +2,8 @@
 
 The Android client is a separate Kotlin/Jetpack Compose app that connects to the Nextcloud app. It supports Nextcloud Login Flow v2, collection and word-pair management, statistics, and the web app's study modes and selections.
 
+The interface is available in English, German, French, and Italian. Android follows the system language; on Android 13 and later, the supported choices also appear in per-app language settings.
+
 ## Development setup
 
 - Android Studio with the Android SDK and an emulator or Android device

@@ -33,8 +33,8 @@ jobs:
       - name: Check JavaScript syntax
         run: node --check apps/nextcloud/vocabulary_trainer/js/app.js
 
-      - name: Check translation JSON
-        run: php -r 'json_decode(file_get_contents("apps/nextcloud/vocabulary_trainer/l10n/de.json"), true, 512, JSON_THROW_ON_ERROR);'
+      - name: Check translation catalogs
+        run: php apps/nextcloud/vocabulary_trainer/tests/ValidateTranslations.php
 
       - name: Run app tests
         run: php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php

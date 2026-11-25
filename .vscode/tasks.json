@@ -23,7 +23,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "set -e; find apps/nextcloud/vocabulary_trainer -type f -name '*.php' -print0 | xargs -0 -n1 php -l; node --check apps/nextcloud/vocabulary_trainer/js/app.js; php -r 'json_decode(file_get_contents(\"apps/nextcloud/vocabulary_trainer/l10n/de.json\"), true, 512, JSON_THROW_ON_ERROR);'; php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php"
+        "set -e; find apps/nextcloud/vocabulary_trainer -type f -name '*.php' -print0 | xargs -0 -n1 php -l; node --check apps/nextcloud/vocabulary_trainer/js/app.js; php apps/nextcloud/vocabulary_trainer/tests/ValidateTranslations.php; php apps/nextcloud/vocabulary_trainer/tests/CollectionServiceTest.php"
       ],
       "options": {
         "cwd": "${workspaceFolder}"

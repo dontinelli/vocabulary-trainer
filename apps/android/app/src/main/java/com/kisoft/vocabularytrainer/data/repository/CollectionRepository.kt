@@ -1,6 +1,8 @@
 package com.kisoft.vocabularytrainer.data.repository
 
+import android.content.res.Resources
 import com.google.gson.Gson
+import com.kisoft.vocabularytrainer.R
 import com.kisoft.vocabularytrainer.data.api.CollectionApi
 import com.kisoft.vocabularytrainer.data.auth.LoginCredentials
 import com.kisoft.vocabularytrainer.data.db.CollectionDao
@@ -22,7 +24,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 class CollectionRepository(
-    private val collectionDao: CollectionDao
+    private val collectionDao: CollectionDao,
+    private val resources: Resources
 ) {
     private val gson = Gson()
 
@@ -204,8 +207,8 @@ class CollectionRepository(
     private fun <T : Any> Response<T>.requireSuccess(): T {
         if (!isSuccessful) {
             val details = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: message()
-            throw IllegalStateException("Request failed (HTTP ${code()}): $details")
+            throw IllegalStateException(resources.getString(R.string.api_request_failed, code(), details))
         }
-        return body() ?: throw IllegalStateException("The server returned an empty response.")
+        return body() ?: throw IllegalStateException(resources.getString(R.string.empty_server_response))
     }
 }

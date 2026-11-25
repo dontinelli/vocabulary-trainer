@@ -42,7 +42,7 @@ Keep the Nextcloud app self-contained under its app directory. The Android app s
 - Use the current-user service to identify the owner. Do not accept an owner UID from an untrusted request body.
 - Follow platform CSRF/request-token conventions for state-changing requests. Return only data the current user is authorized to see.
 - Keep frontend source separate from generated assets and use the supported Nextcloud frontend build tooling. Avoid committing secrets or local instance data.
-- Use app translation facilities for user-visible text. The initial interface translations are English and German; this is separate from the vocabulary languages selected for individual collections.
+- Use app translation facilities for user-visible text. The available interface translations are English, German, French, and Italian; this is separate from the vocabulary languages selected for individual collections.
 
 ## Android API
 
@@ -54,7 +54,7 @@ Study-answer handling should be server-side: validate ownership, compare answers
 
 ## Collection languages
 
-The UI is initially localized in English and German, but these are not restrictions on vocabulary content. On collection creation, the user selects a source and target language from the app's language chooser. Store language identifiers using BCP 47 language tags (for example `en`, `de`, `fr`, `zh-Hans`, or `pt-BR`). The language selector should support with autofill (e.g. based on a curated list) but the input should not be restricted, so as to allow also other learning tasks (e.g. declination, conjugation). Require source and target to differ.
+The UI is localized in English, German, French, and Italian, but these are not restrictions on vocabulary content. On collection creation, the user selects a source and target language from the app's language chooser. Store language identifiers using BCP 47 language tags (for example `en`, `de`, `fr`, `zh-Hans`, or `pt-BR`). The language selector should support with autofill (e.g. based on a curated list) but the input should not be restricted, so as to allow also other learning tasks (e.g. declination, conjugation). Require source and target to differ.
 
 ## Learning model
 
