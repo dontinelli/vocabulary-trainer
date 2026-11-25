@@ -25,6 +25,7 @@ class CollectionRepository(
                 val request = chain.request().newBuilder()
                     .header("Authorization", Credentials.basic(account.loginName, account.appPassword))
                     .header("OCS-APIRequest", "true")
+                    .header("X-Vocabulary-Trainer-API", "1")
                     .build()
                 chain.proceed(request)
             }
