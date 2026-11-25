@@ -5,7 +5,7 @@ The Android client is a separate Kotlin/Jetpack Compose app that connects to the
 ## Development setup
 
 - Android Studio with the Android SDK and an emulator or Android device
-- Compile/target SDK 37; minimum supported SDK 28
+- Compile/target SDK 37; minimum supported SDK 28. SDK 37 is currently available from Google's preview SDK channel.
 - Use the Gradle wrapper included in this project
 
 Open `apps/android` in Android Studio, sync Gradle, and run the `app` debug configuration. From the project directory, `./gradlew assembleDebug` builds the debug APK.

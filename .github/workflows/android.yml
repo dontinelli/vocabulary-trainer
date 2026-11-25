@@ -36,9 +36,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            platforms;android-37
+
+      - name: Install Android 37 preview platform
+        run: sdkmanager --channel=3 "platforms;android-37"
 
       - name: Build and run unit tests
         working-directory: apps/android
