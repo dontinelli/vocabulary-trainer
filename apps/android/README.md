@@ -9,6 +9,7 @@ The Android client is a separate Kotlin/Jetpack Compose app that connects to the
 - Use the Gradle wrapper included in this project
 
 Open `apps/android` in Android Studio, sync Gradle, and run the `app` debug configuration. From the project directory, `./gradlew assembleDebug` builds the debug APK.
+To run the same build and JVM unit tests as GitHub Actions, run `./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest`.
 
 ## Connecting to local Nextcloud
 

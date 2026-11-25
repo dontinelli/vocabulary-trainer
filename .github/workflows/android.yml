@@ -1,0 +1,45 @@
+name: Android app checks
+
+on:
+  push:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build and test Android app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+          cache-dependency-path: |
+            apps/android/gradle/wrapper/gradle-wrapper.properties
+            apps/android/gradle/libs.versions.toml
+            apps/android/*.gradle.kts
+            apps/android/app/*.gradle.kts
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platforms;android-37
+
+      - name: Build and run unit tests
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:assembleDebug :app:testDebugUnitTest
