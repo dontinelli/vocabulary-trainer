@@ -29,7 +29,7 @@ The dev container provides PHP, Composer, and Node.js. Docker Compose starts Nex
 
 The Android app is a separate Kotlin/Jetpack Compose client in [`apps/android`](../apps/android/). Android Studio, the Android SDK, and the emulator run on the host; the existing devcontainer remains dedicated to Nextcloud development. See the [Android development guide](../apps/android/README.md) for SDK requirements and emulator networking.
 
-The Android client signs in through Nextcloud Login Flow v2 and uses the versioned JSON endpoint `GET /apps/vocabulary_trainer/api/v1/collections`. It caches collection summaries locally with Room. The app targets API 37 and supports API 28 and later.
+The Android client signs in through Nextcloud Login Flow v2 and uses the versioned JSON API under `/apps/vocabulary_trainer/api/v1`. It supports collection and word-pair management, dashboard and collection statistics, and study sessions. Room caches collections, entries, and statistics for offline reading; writes and study answers require a network connection. The app targets API 37 and supports API 28 and later.
 
 ### Without the Dev Container
 
