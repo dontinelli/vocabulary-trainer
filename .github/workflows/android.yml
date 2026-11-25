@@ -39,8 +39,8 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android 37 preview platform
-        run: sdkmanager --channel=3 "platforms;android-37"
+      - name: Install Android 37 platform
+        run: sdkmanager --channel=3 "platforms;android-37.0"
 
       - name: Build and run unit tests
         working-directory: apps/android
