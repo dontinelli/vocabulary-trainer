@@ -9,6 +9,7 @@ use OCA\VocabularyTrainer\Service\CollectionService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -24,6 +25,7 @@ class CollectionController extends Controller {
     }
 
     #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function index(): DataResponse {
         $userId = $this->getUserId();
         if ($userId === null) {

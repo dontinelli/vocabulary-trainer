@@ -8,6 +8,7 @@ namespace OCP {
 
     interface IRequest {
         public function getParam(string $key, mixed $default = null): mixed;
+        public function getHeader(string $name): string;
     }
 
     interface IUser {
@@ -80,6 +81,7 @@ namespace OCP\AppFramework\Http\Attribute {
 namespace OCA\VocabularyTrainer\Tests {
     use InvalidArgumentException;
     use OCA\VocabularyTrainer\Controller\CollectionController;
+    use OCA\VocabularyTrainer\Controller\ApiController;
     use OCA\VocabularyTrainer\Controller\LearningController;
     use OCA\VocabularyTrainer\Service\CollectionService;
     use OCA\VocabularyTrainer\Service\LearningService;
@@ -92,6 +94,7 @@ namespace OCA\VocabularyTrainer\Tests {
     require_once __DIR__ . '/../lib/Service/CollectionService.php';
     require_once __DIR__ . '/../lib/Service/LearningService.php';
     require_once __DIR__ . '/../lib/Controller/CollectionController.php';
+    require_once __DIR__ . '/../lib/Controller/ApiController.php';
     require_once __DIR__ . '/../lib/Controller/EntryController.php';
     require_once __DIR__ . '/../lib/Controller/LearningController.php';
 
@@ -227,11 +230,15 @@ namespace OCA\VocabularyTrainer\Tests {
     }
 
     final class FakeRequest implements IRequest {
-        public function __construct(private array $params = []) {
+        public function __construct(private array $params = [], private array $headers = []) {
         }
 
         public function getParam(string $key, mixed $default = null): mixed {
             return $this->params[$key] ?? $default;
+        }
+
+        public function getHeader(string $name): string {
+            return $this->headers[strtolower($name)] ?? '';
         }
     }
 
@@ -767,6 +774,66 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue([], $db->builders, 'Invalid requests must not access the database.');
     });
 
+    $test('requires mobile API headers before accepting a signed-in session', static function (): void {
+        $db = new FakeDatabase();
+        $controller = new ApiController(
+            'vocabulary_trainer',
+            new FakeRequest(),
+            new CollectionService($db),
+            new LearningService($db),
+            new FakeUserSession(new FakeUser('alice')),
+        );
+
+        assertSameValue(401, $controller->collectionsIndex()->getStatus(), 'Mobile routes must reject requests without the API headers.');
+        assertSameValue([], $db->builders, 'Unauthenticated mobile calls must not query user data.');
+    });
+
+    $test('creates collections through the versioned API for the session user', static function (): void {
+        $db = new FakeDatabase();
+        $controller = new ApiController(
+            'vocabulary_trainer',
+            new FakeRequest(
+                [
+                    'name' => 'French',
+                    'sourceLanguage' => 'fr',
+                    'targetLanguage' => 'de',
+                    'boxCount' => 5,
+                    'userId' => 'mallory',
+                ],
+                [
+                    'ocs-apirequest' => 'true',
+                    'x-vocabulary-trainer-api' => '1',
+                ]
+            ),
+            new CollectionService($db),
+            new LearningService($db),
+            new FakeUserSession(new FakeUser('alice')),
+        );
+
+        $response = $controller->createCollection();
+        assertSameValue(201, $response->getStatus(), 'A valid mobile collection request should return created.');
+        assertSameValue('alice', $db->builders[0]->parameters[':param0'], 'API collection ownership must come from the authenticated session.');
+    });
+
+    $test('registers every versioned API route to an action with CSRF disabled', static function (): void {
+        $routes = require __DIR__ . '/../appinfo/routes.php';
+        $apiRoutes = array_values(array_filter(
+            $routes['routes'],
+            static fn (array $route): bool => str_starts_with($route['name'], 'api#')
+        ));
+
+        assertSameValue(15, count($apiRoutes), 'The v1 API should expose all collection, entry, statistics, and study actions.');
+        foreach ($apiRoutes as $route) {
+            $action = substr($route['name'], strlen('api#'));
+            assertTrue(method_exists(ApiController::class, $action), "The API action {$action} must exist.");
+            $method = new \ReflectionMethod(ApiController::class, $action);
+            assertTrue(
+                $method->getAttributes(\OCP\AppFramework\Http\Attribute\NoCSRFRequired::class) !== [],
+                "The API action {$action} must use the mobile API header gate instead of the browser request-token check."
+            );
+        }
+    });
+
     $test('returns default learning preferences for a collection owner', static function (): void {
         $db = new FakeDatabase();
         $collection = new FakeQueryBuilder();
@@ -1148,5 +1215,5 @@ namespace OCA\VocabularyTrainer\Tests {
         assertSameValue(401, $controller->settings(7)->getStatus(), 'Learning settings should require a signed-in user.');
     });
 
-    echo "{$passed} collection, word-pair, and learning API tests passed.\n";
+    echo "{$passed} collection, word-pair, learning, and mobile API tests passed.\n";
 }

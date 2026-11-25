@@ -25,6 +25,12 @@ Copy `.env.example` to `.env` before starting. The values in that file are for l
 
 The dev container provides PHP, Composer, and Node.js. Docker Compose starts Nextcloud and MariaDB. The app directory is mounted into Nextcloud's `custom_apps` directory.
 
+## Android client
+
+The Android app is a separate Kotlin/Jetpack Compose client in [`apps/android`](../apps/android/). Android Studio, the Android SDK, and the emulator run on the host; the existing devcontainer remains dedicated to Nextcloud development. See the [Android development guide](../apps/android/README.md) for SDK requirements and emulator networking.
+
+The Android client signs in through Nextcloud Login Flow v2 and uses the versioned JSON API under `/apps/vocabulary_trainer/api/v1`. It supports collection and word-pair management, dashboard and collection statistics, and study sessions. Room caches collections, entries, and statistics for offline reading; writes and study answers require a network connection. The app targets API 37 and supports API 28 and later.
+
 ### Without the Dev Container
 
 ```sh
@@ -79,7 +85,35 @@ The initial migration creates the collections, entries, progress, and user-setti
 
 ## API reference
 
-App routes use the `/apps/vocabulary_trainer` prefix. The signed-in Nextcloud session determines the owner; user IDs are not accepted from request data. Write requests use Nextcloud request-token/CSRF protection.
+The web UI uses the existing routes under `/apps/vocabulary_trainer`. These routes retain Nextcloud request-token/CSRF protection for writes.
+
+The Android client uses the separate, versioned JSON API under `/apps/vocabulary_trainer/api/v1`. Authenticate with the app password created by Nextcloud Login Flow v2 using HTTP Basic authentication. Every request must also include `OCS-APIRequest: true` and `X-Vocabulary-Trainer-API: 1`. The custom header is required because API actions are exempt from browser CSRF-token validation; cross-origin requests are not enabled. Nextcloud's authenticated session supplies the user identity; request bodies must never supply an owner UID.
+
+JSON writes return the same response shapes and validation messages as the corresponding web operation. API errors use `{"error":"..."}` with HTTP 400 for invalid input, 401 for a missing authenticated mobile request, and 404 for a missing or unowned resource. Successful creates return HTTP 201; other successful writes return HTTP 200.
+
+### Version 1 mobile routes
+
+| Method | Route | Request / response |
+| --- | --- | --- |
+| GET | `/apps/vocabulary_trainer/api/v1/collections` | List owned collections, pair counts, and normalized learning progress |
+| GET | `/apps/vocabulary_trainer/api/v1/collections/dashboard/statistics` | Overall word-pair count, accuracy, progress, and pairs practiced today |
+| POST | `/apps/vocabulary_trainer/api/v1/collections` | JSON: `name`, `sourceLanguage`, `targetLanguage`, `boxCount`; returns `{"success":true}` |
+| PUT | `/apps/vocabulary_trainer/api/v1/collections/{id}` | Same JSON fields as create; returns `{"success":true}` |
+| DELETE | `/apps/vocabulary_trainer/api/v1/collections/{id}` | Delete an owned collection; returns `{"success":true}` |
+| GET | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries` | List owned collection word pairs (`id`, `sourceTerm`, `targetTerm`, `notes`) |
+| GET | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/statistics` | Per-direction box counts, accuracy, and normalized progress |
+| POST | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries` | JSON: `sourceTerm`, `targetTerm`, optional `notes`; returns `{"success":true}` |
+| PUT | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries/{entryId}` | Same JSON fields as entry create; returns `{"success":true}` |
+| DELETE | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries/{entryId}` | Delete one owned word pair; returns `{"success":true}` |
+| DELETE | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries` | JSON: `entryIds` array; returns `{"deleted":count}` |
+| POST | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/entries/move` | JSON: `entryIds` array and `targetCollectionId`; returns `{"moved":count}` |
+| GET | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/study/settings` | Read the user's study preferences |
+| POST | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/study/session` | Start a session; see the session fields below |
+| POST | `/apps/vocabulary_trainer/api/v1/collections/{collectionId}/study/entries/{entryId}/answer` | JSON: `direction`, `answer`; grades and records progress |
+
+A study-session request accepts `direction`, `mode`, and `selection`; selection-specific fields are `box`, `errorRate`, or `days`. It may also include `startWithNew`, `includeFinalBox`, `answerDelaySeconds`, and `questionTimeLimitSeconds`. The server validates the values, persists supported user preferences, applies the same scheduler as the web client, and returns questions without revealing expected answers before submission. An answer request returns correctness, the correct answer, the resulting box, and answer counters.
+
+The versioned API uses the same service-level validation and owner scoping as the web routes. For collection and study behavior details, see the route descriptions below and the [project specification](project-spec.md).
 
 ### Collections
 
@@ -127,7 +161,7 @@ Targeted sessions can select new pairs, one box, pairs whose lifetime error perc
 
 ## Product direction
 
-Vocabulary Trainer is being developed as a Nextcloud app first, with a possible Android client later. Keep the API and learning model suitable for that future client.
+Vocabulary Trainer is developed as a Nextcloud app with a separate Android client. Keep the versioned API and learning model stable for both clients.
 
 - Interface languages: English and German.
 - Vocabulary languages are user-defined per collection, stored as BCP 47 tags.

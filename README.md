@@ -11,4 +11,4 @@ Vocabulary Trainer is a Nextcloud app for organizing vocabulary into private col
 
 Start learning sessions from a collection using typed answers, multiple choice, or a mix of both. Set an optional response time limit; answers automatically advance after a configurable display delay. Pause either countdown with the pin control or click the card outside its controls to move to the next step early. The collection dashboard and learning statistics are still in development.
 
-For app usage details, see the [Nextcloud app guide](apps/nextcloud/vocabulary_trainer/README.md). Contributors can find setup, testing, API, and architecture information in the [development manual](docs/development.md).
+For app usage details, see the [Nextcloud app guide](apps/nextcloud/vocabulary_trainer/README.md). Contributors can find setup, testing, API, and architecture information in the [development manual](docs/development.md). Android contributors can start with the [Android development guide](apps/android/README.md).

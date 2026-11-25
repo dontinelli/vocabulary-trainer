@@ -49,12 +49,12 @@ The app is a Nextcloud-first vocabulary trainer with private collections and a c
 
 - Nextcloud app with server-side validation and ownership checks
 - versioned database migrations
-- API structure compatible with a future Android client
+- Versioned API supporting the Android client
 - maintainable Vue frontend split from backend logic
 
 ## Architecture decisions
 
 - Keep the Nextcloud app as the primary backend.
-- Build a REST-like API with stable versioning to support Android later.
+- Build a REST-like API with stable versioning for the Android client.
 - Keep Android as a separate client, not an embedded part of the app.
 - Treat progress and collection data as user-owned and server-validated.
